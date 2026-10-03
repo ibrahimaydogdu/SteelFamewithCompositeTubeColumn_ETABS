@@ -60,6 +60,7 @@ Partial Class MainForm
         Me.SeedBox = New System.Windows.Forms.TextBox()
         Me.Label26 = New System.Windows.Forms.Label()
         Me.CompositeCodeBox = New System.Windows.Forms.ComboBox()
+        Me.CompositeTypeBox = New System.Windows.Forms.ComboBox()
         Me.SkipCases = New System.Windows.Forms.CheckBox()
         Me.PDeltaBox = New System.Windows.Forms.CheckBox()
         Me.GroupBox9 = New System.Windows.Forms.GroupBox()
@@ -446,6 +447,7 @@ Partial Class MainForm
         'GroupBox8
         '
         Me.GroupBox8.Controls.Add(Me.CompositeColumns)
+        Me.GroupBox8.Controls.Add(Me.CompositeTypeBox)
         Me.GroupBox8.Controls.Add(Me.AutoCombos)
         Me.GroupBox8.Controls.Add(Me.Label24)
         Me.GroupBox8.Controls.Add(Me.DriftCombos)
@@ -469,7 +471,7 @@ Partial Class MainForm
         Me.CompositeColumns.Name = "CompositeColumns"
         Me.CompositeColumns.Size = New System.Drawing.Size(300, 20)
         Me.CompositeColumns.TabIndex = 0
-        Me.CompositeColumns.Text = "Encased composite columns"
+        Me.CompositeColumns.Text = "Composite columns"
         Me.CompositeColumns.UseVisualStyleBackColor = True
         '
         'AutoCombos
@@ -539,6 +541,16 @@ Partial Class MainForm
         Me.CompositeCodeBox.Name = "CompositeCodeBox"
         Me.CompositeCodeBox.Size = New System.Drawing.Size(140, 24)
         Me.CompositeCodeBox.TabIndex = 7
+        '
+        'CompositeTypeBox
+        '
+        Me.CompositeTypeBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.CompositeTypeBox.FormattingEnabled = True
+        Me.CompositeTypeBox.Items.AddRange(New Object() {"Encased (W + concrete + rebar)", "Filled tube (box / pipe)"})
+        Me.CompositeTypeBox.Location = New System.Drawing.Point(180, 20)
+        Me.CompositeTypeBox.Name = "CompositeTypeBox"
+        Me.CompositeTypeBox.Size = New System.Drawing.Size(210, 24)
+        Me.CompositeTypeBox.TabIndex = 10
         '
         'GroupBox5
         '
@@ -1299,6 +1311,7 @@ Partial Class MainForm
     Friend WithEvents SeedBox As TextBox
     Friend WithEvents Label26 As Label
     Friend WithEvents CompositeCodeBox As ComboBox
+    Friend WithEvents CompositeTypeBox As ComboBox
     Friend WithEvents SkipCases As CheckBox
     Friend WithEvents PDeltaBox As CheckBox
     Friend WithEvents GroupBox9 As GroupBox

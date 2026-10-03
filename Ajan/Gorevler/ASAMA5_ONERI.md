@@ -1,7 +1,7 @@
 # Aşama 5 — Dolgulu tüp kolon (CFT/CFP): inceleme ve öneri
 
 - **Tarih:** 2026-10-03.
-- **Durum:** öneri; kullanıcı onayı bekleniyor. Kod değiştirilmedi.
+- **Durum:** onaylandı ve uygulandı (Aşama 5; ayrıntılar `DEGISIKLIKLER.md` dosyasında). En küçük boyut 300 mm seçildi.
 
 ## 1. Kullanıcı kararları
 - Tüp kesitler **ETABS kütüphanesinden** alınacak.

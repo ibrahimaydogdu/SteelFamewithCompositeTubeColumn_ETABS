@@ -200,6 +200,7 @@ Public Class MainForm
     Private Sub MainForm_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         If DriftCombos.SelectedIndex < 0 Then DriftCombos.SelectedIndex = MiscellaneousStructures.DriftComboMode_.LateralCasesOnly
         If CompositeCodeBox.SelectedIndex < 0 Then CompositeCodeBox.SelectedIndex = CompositeCode_.AISC360_22
+        If CompositeTypeBox.SelectedIndex < 0 Then CompositeTypeBox.SelectedIndex = CompositeType_.FilledTube
         If RepairModeBox.SelectedIndex < 0 Then RepairModeBox.SelectedIndex = MiscellaneousStructures.RepairMode_.Combined
         'HS defaults of the old form (PAR 0.6, HMCR 0.9, Dynamic / Adaptive) come from the catalog
         UiOpt.Params = New List(Of MethodParam_)
@@ -216,6 +217,13 @@ Public Class MainForm
         CostRebarBox.Text = Num(Defaults.RebarUnitCost)
         CostConcreteBox.Text = Num(Defaults.ConcreteUnitCost)
         CostFormworkBox.Text = Num(Defaults.FormworkUnitCost)
+    End Sub
+
+    'Filled tubes have no rebar and no formwork: their unit costs are not used
+    Private Sub CompositeTypeBox_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CompositeTypeBox.SelectedIndexChanged
+        Dim Encased As Boolean = CompositeTypeBox.SelectedIndex = CompositeType_.Encased
+        CostRebarBox.Enabled = Encased
+        CostFormworkBox.Enabled = Encased
     End Sub
 
     'VB Rnd: Rnd(-1) followed by Randomize(seed) gives a repeatable sequence for the seed
@@ -410,7 +418,8 @@ Public Class MainForm
             Dim FI As MiscellaneousStructures.FormInfo_ = R.FormInfo
             If String.IsNullOrEmpty(FI.FileList.ETABSFile) Then
                 FI.FileList.ETABSFile = ModelFileBox.Text
-                FI.CompositeColumns = R.GlobalBestPrint IsNot Nothing AndAlso R.GlobalBestPrint.Any(Function(l) l.Contains("[EC "))
+                FI.CompositeColumns = R.GlobalBestPrint IsNot Nothing AndAlso R.GlobalBestPrint.Any(Function(l) l.Contains("[EC ") OrElse l.Contains("[CFT ") OrElse l.Contains("[CFP "))
+                If FI.CompositeColumns AndAlso Not R.GlobalBestPrint.Any(Function(l) l.Contains("[EC ")) Then FI.CompositeType = CompositeType_.FilledTube
             End If
             FI.FileList.OutputFile = F
             Written = ExcelExport.WriteResult(Path.ChangeExtension(F, ".xlsx"), R, FI)
@@ -525,6 +534,7 @@ Public Class MainForm
         FormInfo.CheckStructure = CheckStructure.Checked
         FormInfo.CompositeColumns = CompositeColumns.Checked
         FormInfo.CompositeCode = Math.Max(CompositeCodeBox.SelectedIndex, 0)
+        FormInfo.CompositeType = CType(Math.Max(CompositeTypeBox.SelectedIndex, 0), CompositeType_)
         FormInfo.RepairMode = Math.Max(RepairModeBox.SelectedIndex, 0)
         FormInfo.UseCache = ResultCache.Checked
         FormInfo.RestartEvery = CInt(ToDbl(RestartBox.Text))
@@ -564,6 +574,7 @@ Public Class MainForm
         CheckStructure.Checked = FormInfo.CheckStructure
         CompositeColumns.Checked = FormInfo.CompositeColumns
         CompositeCodeBox.SelectedIndex = FormInfo.CompositeCode
+        CompositeTypeBox.SelectedIndex = FormInfo.CompositeType
         RepairModeBox.SelectedIndex = FormInfo.RepairMode
         ResultCache.Checked = FormInfo.UseCache
         RestartBox.Text = FormInfo.RestartEvery.ToString()
@@ -901,7 +912,7 @@ Public Class MainForm
             Dim G As String = ETABSModel.Groups(ETABSModel.SteelFrameDesignGroupIDs(j)).GroupName
             Dim Sname As String = Nothing
             If Not ByGroup.TryGetValue(G, Sname) Then : ETABSModel.Errorlogprint("Group " & G & " not found in " & OutputFile) : ret = -1 : Continue For : End If
-            Sect_ID(j) = ETABSModel.WSections.FindIndex(Function(c) c.SectionName = Sname)
+            Sect_ID(j) = ETABSModel.FindSection(j, Sname)
             If Sect_ID(j) < 0 Then : ETABSModel.Errorlogprint("Section not found in library: " & Sname) : ret = -1 : End If
         Next j
         Return Sect_ID

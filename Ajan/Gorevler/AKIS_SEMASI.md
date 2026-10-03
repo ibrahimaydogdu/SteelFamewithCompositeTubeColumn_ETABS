@@ -43,7 +43,7 @@ Aşama 2  Referans kodun aktarılması, eski iskeletin kaldırılması          
    │       test: derleme, MathTest = referans, 525M kopyası ETABS testi = referans
 Aşama 3–4 Fortran SSO incelemesi + VB.NET çevirisi (16. yöntem)                [bitti]
          notlar: Yetenekler/Optimizasyon_Yetenegi/SSO_CEVIRI_NOTLARI.md
-Aşama 5  Dolgulu tüp kolon (CFT/CFP):
+Aşama 5  Dolgulu tüp kolon (CFT/CFP)                                         [bitti]
    │       - kesit kataloğu: kutu/boru profil listesi + beton
    │       - ETABS'te kesit tanımı (OAPI'de Set metodu yok → DatabaseTables; API testiyle doğrulanacak)
    │       - iç çözücü: AISC 360-22 I2.2 (kompakt/narin sınıfı, Pno, EIeff, Mn, etkileşim)

@@ -20,12 +20,19 @@
 - [x] `SocialSpider.vb`; `OptMethod_.SocialSpider = 15`, katalog girdisi, `Member_.IsMale`, `AlgorithmState_.SpiderFemales`.
 - [x] Testler: MathTest (diğer 15 yöntem değişmedi), SSO testi, form görüntüsü, ETABS uçtan uca testi.
 
-## Aşama 5 — Dolgulu tüp kolon (CFT/CFP)
-- [x] Kesit kaynağı: ETABS kütüphanesi (kullanıcı kararı).
-- [x] Beton: modelde tanımlı malzeme (kullanıcı kararı).
-- [x] Kütüphane incelemesi ve API testi (460Member kopyası) → `ASAMA5_ONERI.md`.
-- [ ] (?) Öneriyi onayla: yapma kutu listesi, gömülü seçeneğinin kalması, borunun varsayılanı, süzgeç.
-- [ ] İç çözücü (AISC 360-22 I2.2) ve ETABS ile karşılaştırma.
+## Aşama 5 — Dolgulu tüp kolon (CFT/CFP) (2026-10-03) ✔
+- [x] Kararlar:
+  - ETABS kütüphanesi + yapma kutular;
+  - beton modelden;
+  - boru kapalı;
+  - kare kutu, en az 300 mm;
+  - gömülü seçenek kalıyor (tek program).
+- [x] `TubeColumn.vb`, `TubeSections.xml`, ETABSClass katalog yardımcıları, form tip seçimi.
+- [x] Testler:
+  - TubeTest 23/23;
+  - MathTest ve gömülü mod regresyonu birebir aynı;
+  - tüp modu uçtan uca: ETABS / iç hesap ≤ 1,041.
+- [ ] (?) İsteğe bağlı: AISC 341 süneklik süzgeci; grup 6'daki "Combined D/C ratio exceeded" mesajının incelenmesi.
 
 ## Aşama 6 — Hibrit tasarım
 - [x] Karar: hem kullanıcı hem optimizasyon değişkeni; "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu.

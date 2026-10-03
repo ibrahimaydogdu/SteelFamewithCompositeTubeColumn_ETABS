@@ -179,6 +179,7 @@ Public Class MiscellaneousStructures
         Public DriftComboMode As DriftComboMode_
         Public Seed As Integer              'random seed of the run
         Public CompositeCode As CompositeCode_  'edition of the composite column check (old backups: 360-16)
+        Public CompositeType As CompositeType_  'encased W or filled tube (old backups: encased)
         Public RepairMode As RepairMode_        'old backups: sequential (one re-analysis per repair step)
         Public UseCache As Boolean              'reuse the result of a design vector evaluated before
         Public SkipUnusedCases As Boolean       'do not run analysis cases that no design/drift check uses

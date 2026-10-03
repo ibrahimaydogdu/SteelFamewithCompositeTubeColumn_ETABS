@@ -35,13 +35,34 @@ Diğer belgeler:
 - **Lisans ve depo:** lisans MIT. ETABS model dosyaları (`.EDB`, `.$et`) depoya girer; analiz çıktıları girmez.
 
 ### A3. Durum (Aşama 2)
-- Kod, referans projenin (sürüm 2026.10.3) kopyası. Tek ekleme 16. yöntem SSO (Aşama 3–4; `SocialSpider.vb`).
+- Kod, referans projenin (sürüm 2026.10.3) kopyası. Eklemeler:
+  - 16. yöntem SSO (Aşama 3–4; `SocialSpider.vb`);
+  - dolgulu tüp kolonlar (Aşama 5; `TubeColumn.vb`, `TubeSections.xml`). Kurallar A5'te.
 - Kök ad alanı ve exe adı `FrameSap2000` olarak korundu, böylece ayar ve yedek dosyaları uyumlu kalıyor.
 - Değişenler yalnızca şunlar:
-  - ürün adı ve sürüm (0.3.0);
+  - ürün adı ve sürüm (0.4.0);
   - pencere başlığı;
   - proje/çözüm adları ve GUID'leri.
 - Aşağıdaki B bölümü referansın kurallarıdır ve koda birebir uyar. CFT/CFP ve hibrit tasarım eklendikçe B bölümü güncellenecek. Şimdilik "kompozit" dendiğinde gömülü kesit kastediliyor.
+
+### A5. Dolgulu tüp kolonlar (Aşama 5)
+- **Mod ve kesit:**
+  - `FormInfo.CompositeType` (`CompositeType_`: 0 = Encased, 1 = FilledTube; eski yedekler 0). `ETABS_Class.TubeMode` = CompositeColumns ve FilledTube.
+  - Tüp modda kompozit grubun tasarım değişkeni `Tubes` listesinin indisidir; W listesi değildir.
+  - Hiçbir yerde değişkenin katalogunu varsaymadan `WSections(Sect_Ind(v))` yazılmaz. Bunun yerine yardımcılar kullanılır: `IsTubeVar`, `CatalogCount`, `SecArea` (çelik alanı), `SecDepth`, `SecName`, `FindSection`, `ColumnGap` (kiriş başlığının sığacağı genişlik; tüpte yüz genişliği).
+  - Kiriş değişkenleri her zaman W'dir.
+- **Katalog** (`TubeSettings_.Catalog`):
+  - kütüphanedeki STEEL_BOX / STEEL_PIPE kayıtları (`TF`/`TDES` tasarım kalınlığı) ve yapma kare kutular `BU<B>X<B>X<t>`;
+  - `MinDimension`, λmax (I1.1a/b) ve aynı geometri süzgeçleri uygulanır;
+  - sıralama çelik alanına göredir. Onarım adımları (G2, F2, F4) ve koruma döngüsü bu sıraya dayanır.
+- **ETABS'te kesit:**
+  - Arama sırasında `CreateGeneralSection` (`CompositeSection.Transformed`) kullanılır.
+  - Finalde `CreateTubeSections` çalışır: `Filled Steel Tube` (t3, t2, tf, tw, FillMat) ve `Filled Steel Pipe` (t3 = D, tw) tablolarına boyutlar açıkça yazılır.
+  - Tablolardaki `FromFile = Yes` seçeneği ETABS 22.6'da çalışmıyor (API testi, Aşama 5).
+- **Beton:** `ResolveTubeConcrete`. `TubeSettings.ConcreteMaterial` modelde varsa o, yoksa modelin ilk beton malzemesi.
+- **Maliyet:** `TubeSettings.SteelUnitCost` × çelik [kN] + `ConcreteUnitCost` × beton [m³]. Formun *Steel* ve *Concrete* değerleri bunların yerine geçer.
+- **Ub:** ilk tasarımdaki W kesitinin Fy·A değerine en az eşit Pno'lu ilk tüp + referanstaki kayma (`BOUND_SHIFT_MULTIPLIER`, `UPPER_BOUND_MULTIPLIER`); Lb = 0.
+- **Değişmezlik:** W kesitli değişkenlerde (çelik ve gömülü mod) hesap referansla aynıdır. Bu, MathTest ve 525M gömülü mod regresyon testiyle doğrulanır.
 
 ### A4. Depo
 - Depoya girmeyenler:

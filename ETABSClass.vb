@@ -61,6 +61,11 @@ Public Class ETABS_Class
     Public CompositeMat As CompositeMaterial_
     Private CompositeActive As Boolean                    'False while the steel auto-select design (Initialize_UBLB) runs
     Private ReadOnly EncasedCache As New Dictionary(Of Integer, EncasedIShape)
+    'Filled tube columns (TubeColumn.vb): design variable of a composite group = index in Tubes
+    Public TubeSettings As TubeSettings_
+    Public Tubes As List(Of TubeSection_)
+    Private ReadOnly TubeCache As New Dictionary(Of Integer, CompositeSection)
+    Public TubeConcrete As String                         'fill concrete (material of the model)
     Private ReadOnly MemberChecks As New Dictionary(Of String, CompositeMemberCheck)
     Private ReadOnly CreatedSections As New HashSet(Of String)
     Private Const NO_DESIGN As Integer = 7
@@ -602,7 +607,7 @@ Public Class ETABS_Class
                 Dim PropName As String = Nothing, SAuto As String = Nothing
                 ret = SapModel.FrameObj.GetSection(Frames(i).FrameName, PropName, SAuto)
                 If (ret <> 0) Then : Errorlogprint("Problem occurred on :FrameObj.GetSection") : Return ret : End If
-                If PropName IsNot Nothing AndAlso PropName.StartsWith(CompositeSettings.SectionPrefix) Then
+                If PropName IsNot Nothing AndAlso IsCompositeSectionName(PropName) Then
                     Frames(i).FrameDesignProcedure = FramePointStoryGroupStructures_.DesignProcedure_.SteelFrameDesign
                 End If
             End If
@@ -1302,6 +1307,20 @@ Public Class ETABS_Class
             Ub(i) = SecID + CInt(Shift + UPPER_BOUND_MULTIPLIER * (N - 1))
             Lb(i) = SecID + CInt(Shift - LOWER_BOUND_MULTIPLIER * (N - 1))
             If Groups(isec).IsComposite Then Lb(i) = 0     'concrete encasement: smaller W sections are feasible
+            If IsTubeVar(i) Then
+                'filled tube: Ub from the first tube with Pno >= Fy As of the W design section, Lb = smallest tube
+                Dim Nt As Integer = Tubes.Count
+                Dim RefP As Double = CompositeMat.Fy * WSections(SecID).Area
+                Dim Eq As Integer = Enumerable.Range(0, Nt).FirstOrDefault(Function(k) CompositeSec(k).Pno() >= RefP)
+                If CompositeSec(Eq).Pno() < RefP Then
+                    Eq = Nt - 1
+                    Errorlogprint("Warning: group " & Groups(isec).GroupName & ": no tube of the catalog reaches Fy As of " & WSections(SecID).SectionName & " (largest tube used as upper bound)")
+                End If
+                Dim TShift As Double = Math.Log(Groups(isec).PMMRatio + PMM_RATIO_OFFSET) * BOUND_SHIFT_MULTIPLIER * (Nt - 1)
+                Ub(i) = Math.Min(Math.Max(Eq + CInt(TShift + UPPER_BOUND_MULTIPLIER * (Nt - 1)), 0), Nt - 1)
+                Lb(i) = 0
+                Continue For
+            End If
             If Ub(i) > N - 1 Then Ub(i) = N - 1
             If Ub(i) < 0 Then Ub(i) = 0
             If Lb(i) < 0 Then Lb(i) = 0
@@ -1428,7 +1447,7 @@ Public Class ETABS_Class
     'Section index of variable v within [Lb, Ub] that satisfies Fits and is closest to the current one (-1: none);
     'equal distances are decided by the seeded generator
     Private Function NearestFeasible(ByVal v As Integer, ByVal Current As Integer, ByVal Fits As Func(Of Integer, Boolean)) As Integer
-        Dim Lo As Integer = If(Lb IsNot Nothing, Lb(v), 0), Hi As Integer = If(Ub IsNot Nothing, Ub(v), WSections.Count - 1)
+        Dim Lo As Integer = If(Lb IsNot Nothing, Lb(v), 0), Hi As Integer = If(Ub IsNot Nothing, Ub(v), CatalogCount(v) - 1)
         Dim Best As Integer = -1, BestDist As Integer = Integer.MaxValue
         For k = Lo To Hi
             If Not Fits(k) Then Continue For
@@ -1444,15 +1463,16 @@ Public Class ETABS_Class
             Dim GrNameDown As String = CtoC(1)
             Dim UpVar As Integer = VarIndex(CtoC(0))
             Dim DownVar As Integer = VarIndex(GrNameDown)
-            Dim UpArea As Double = WSections(Sect_Ind(UpVar)).Area
-            Dim UpDepth As Double = WSections(Sect_Ind(UpVar)).Depth
-            If UpArea > WSections(Sect_Ind(DownVar)).Area OrElse UpDepth > WSections(Sect_Ind(DownVar)).Depth Then
+            Dim UpArea As Double = SecArea(UpVar, Sect_Ind(UpVar))
+            Dim UpDepth As Double = SecDepth(UpVar, Sect_Ind(UpVar))
+            If UpArea > SecArea(DownVar, Sect_Ind(DownVar)) OrElse UpDepth > SecDepth(DownVar, Sect_Ind(DownVar)) Then
                 'lower column at least as large as the upper one, not larger than the column(s) below it
                 Dim DownDownVars = GeoCons.CtoCList.Where(Function(c) c(0) = GrNameDown).Select(Function(c) VarIndex(c(1))).ToList()
-                Dim DownDownDepth As Double = If(DownDownVars.Any(), DownDownVars.Min(Function(v) WSections(Sect_Ind(v)).Depth), Double.MaxValue)
-                Dim DownDownArea As Double = If(DownDownVars.Any(), DownDownVars.Min(Function(v) WSections(Sect_Ind(v)).Area), Double.MaxValue)
-                Dim k As Integer = NearestFeasible(DownVar, Sect_Ind(DownVar), Function(s) WSections(s).Area >= UpArea AndAlso WSections(s).Depth >= UpDepth AndAlso
-                                                                                     WSections(s).Area <= DownDownArea AndAlso WSections(s).Depth <= DownDownDepth)
+                Dim DownDownDepth As Double = If(DownDownVars.Any(), DownDownVars.Min(Function(v) SecDepth(v, Sect_Ind(v))), Double.MaxValue)
+                Dim DownDownArea As Double = If(DownDownVars.Any(), DownDownVars.Min(Function(v) SecArea(v, Sect_Ind(v))), Double.MaxValue)
+                Dim Dv As Integer = DownVar
+                Dim k As Integer = NearestFeasible(DownVar, Sect_Ind(DownVar), Function(s) SecArea(Dv, s) >= UpArea AndAlso SecDepth(Dv, s) >= UpDepth AndAlso
+                                                                                     SecArea(Dv, s) <= DownDownArea AndAlso SecDepth(Dv, s) <= DownDownDepth)
                 If k >= 0 Then Sect_Ind(DownVar) = k
             End If
         Next
@@ -1460,7 +1480,7 @@ Public Class ETABS_Class
         For Each BtoC In GeoCons.BtoCList
             Dim ColVar As Integer = VarIndex(BtoC(0))
             Dim BeamVar As Integer = VarIndex(BtoC(1))
-            Dim Gap As Double = ConnectionGap(WSections(Sect_Ind(ColVar)), BtoC(2))
+            Dim Gap As Double = ColumnGap(ColVar, Sect_Ind(ColVar), BtoC(2))
             If WSections(Sect_Ind(BeamVar)).FlangeLength > Gap Then
                 Dim k As Integer = NearestFeasible(BeamVar, Sect_Ind(BeamVar), Function(s) WSections(s).FlangeLength <= Gap)
                 If k >= 0 Then Sect_Ind(BeamVar) = k
@@ -1509,7 +1529,7 @@ Public Class ETABS_Class
         For i = 0 To SteelFrameDesignGroupIDs.Count - 1
             If Assigned(i) = Sect_Ind(i) Then Continue For
             Dim isec As Integer = SteelFrameDesignGroupIDs(i)
-            Dim PropName As String = WSections(Sect_Ind(i)).SectionName
+            Dim PropName As String = If(IsTubeVar(i), Nothing, WSections(Sect_Ind(i)).SectionName)
             If CompositeActive AndAlso Groups(isec).IsComposite Then PropName = CompositeSectionName(Sect_Ind(i))
             ret = SapModel.FrameObj.SetSection(Groups(isec).GroupName, PropName, ETABSv1.eItemType.Group)
             If (ret <> 0) Then : Errorlogprint("Problem occurred on :FrameObj.SetSection " & PropName) : Return ret : End If
@@ -1631,28 +1651,26 @@ Public Class ETABS_Class
 
     'Steps of F2 (story columns), F4 (all columns) and G2 (overstressed groups); largest step per variable
     Private Function RepairSteps() As Integer()
-        Dim N As Integer = WSections.Count
+        'step sizes relative to the catalog of the variable (W sections or tubes)
         Dim Steps(SteelFrameDesignGroupIDs.Count - 1) As Integer
         For i = 0 To Stories.Length - 1
             Dim Ratio As Double = Math.Max(Stories(i).InterStoryDPenaltyX, Stories(i).InterStoryDPenaltyY) + 1
             If Ratio <= 1 Then Continue For
-            Dim s As Integer = CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Ratio) * N)
             For Each v In StoryColumnVars(i)
-                Steps(v) = Math.Max(Steps(v), s)
+                Steps(v) = Math.Max(Steps(v), CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Ratio) * CatalogCount(v)))
             Next
         Next
         Dim Top As Double = Math.Max(TopDriftX, TopDriftY) / TopDriftLimit
         If Top > 1 Then
-            Dim s As Integer = CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Top) * N)
             For i = 0 To Stories.Length - 1
                 For Each v In StoryColumnVars(i)
-                    Steps(v) = Math.Max(Steps(v), s)
+                    Steps(v) = Math.Max(Steps(v), CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Top) * CatalogCount(v)))
                 Next
             Next
         End If
         For i = 0 To Steps.Length - 1
             Dim R As Double = Groups(SteelFrameDesignGroupIDs(i)).PMMRatio
-            If R > 1 Then Steps(i) = Math.Max(Steps(i), CInt(PMM_LOG_MULTIPLIER * Math.Log(R) * N))
+            If R > 1 Then Steps(i) = Math.Max(Steps(i), CInt(PMM_LOG_MULTIPLIER * Math.Log(R) * CatalogCount(i)))
         Next
         Return Steps
     End Function
@@ -1810,7 +1828,7 @@ Public Class ETABS_Class
                 Errorlogprint("Warning: ETABS guard, group " & Groups(SteelFrameDesignGroupIDs(v)).GroupName & ": no larger section within the bounds keeps the geometric constraints")
             End If
             Errorlogprint("Info: ETABS guard, group " & Groups(SteelFrameDesignGroupIDs(v)).GroupName & " (ETABS " & kv.Value.ToString("F3", CultureInfo.InvariantCulture) & "): " &
-                          WSections(Sect_Ind(v)).SectionName & " -> " & WSections([Next]).SectionName)
+                          SecName(v, Sect_Ind(v)) & " -> " & SecName(v, [Next]))
             Sect_Ind(v) = [Next]
             Changed += 1
         Next
@@ -1820,15 +1838,15 @@ Public Class ETABS_Class
     'Section k for variable v with the other variables of Sect_Ind: column-column (area and depth between the upper and
     'the lower column) and beam-column (beam flange within the connection gap) constraints
     Private Function GeometryFits(ByVal v As Integer, ByVal k As Integer, ByVal Sect_Ind() As Integer) As Boolean
-        Dim S As SectionStructures_.STEEL_I_SECTION = WSections(k)
+        Dim A As Double = SecArea(v, k), D As Double = SecDepth(v, k)
         For Each CtoC In GeoCons.CtoCList
             Dim UpVar As Integer = VarIndex(CtoC(0)), DownVar As Integer = VarIndex(CtoC(1))
-            If UpVar = v AndAlso (S.Area > WSections(Sect_Ind(DownVar)).Area OrElse S.Depth > WSections(Sect_Ind(DownVar)).Depth) Then Return False
-            If DownVar = v AndAlso (S.Area < WSections(Sect_Ind(UpVar)).Area OrElse S.Depth < WSections(Sect_Ind(UpVar)).Depth) Then Return False
+            If UpVar = v AndAlso (A > SecArea(DownVar, Sect_Ind(DownVar)) OrElse D > SecDepth(DownVar, Sect_Ind(DownVar))) Then Return False
+            If DownVar = v AndAlso (A < SecArea(UpVar, Sect_Ind(UpVar)) OrElse D < SecDepth(UpVar, Sect_Ind(UpVar))) Then Return False
         Next
         For Each BtoC In GeoCons.BtoCList
             If VarIndex(BtoC(0)) <> v Then Continue For
-            If WSections(Sect_Ind(VarIndex(BtoC(1)))).FlangeLength > ConnectionGap(S, BtoC(2)) Then Return False
+            If WSections(Sect_Ind(VarIndex(BtoC(1)))).FlangeLength > ColumnGap(v, k, BtoC(2)) Then Return False
         Next
         Return True
     End Function
@@ -1844,7 +1862,7 @@ Public Class ETABS_Class
             Dim Ratio As Double = Math.Max(Stories(i).InterStoryDPenaltyX, Stories(i).InterStoryDPenaltyY) + 1
             If Ratio <= 1 Then Continue For
             For Each v In StoryColumnVars(i)
-                StepVariable(Sect_Ind, v, CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Ratio) * WSections.Count))
+                StepVariable(Sect_Ind, v, CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Ratio) * CatalogCount(v)))
             Next
         Next i
         Return Not Before.SequenceEqual(Sect_Ind)
@@ -1870,11 +1888,10 @@ Public Class ETABS_Class
     Private Function F4_Modifier_TopStoryDrift(ByRef Sect_Ind() As Integer) As Boolean
         Dim Ratio As Double = Math.Max(TopDriftX, TopDriftY) / TopDriftLimit
         If Ratio <= 1 Then Return False
-        Dim StepSize As Integer = CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Ratio) * WSections.Count)
         Dim Before() As Integer = CType(Sect_Ind.Clone(), Integer())
         For i = 0 To Stories.Length - 1
             For Each v In StoryColumnVars(i)
-                StepVariable(Sect_Ind, v, StepSize)
+                StepVariable(Sect_Ind, v, CInt(DRIFT_LOG_MULTIPLIER * Math.Log(Ratio) * CatalogCount(v)))
             Next
         Next
         Return Not Before.SequenceEqual(Sect_Ind)
@@ -1994,7 +2011,7 @@ Public Class ETABS_Class
             Next
             Dim SecID As Integer = If(Assigned IsNot Nothing AndAlso Assigned(v) >= 0, Assigned(v), CompositeSectionID(Groups(ID).GroupName))
             If SecID < 0 Then : Errorlogprint("Composite section of group " & Groups(ID).GroupName & " not found") : Return -1 : End If
-            Dim Detailing As Double = Encased(SecID).DetailingRatio()
+            Dim Detailing As Double = CompositeSec(SecID).DetailingRatio()
             Dim Strength As Double = 0
             For Each Block In Blocks.Values
                 Dim ks = Block.OrderBy(Function(k) ObjSta(k)).ToList()
@@ -2020,6 +2037,12 @@ Public Class ETABS_Class
     Private Function CompositeSectionID(ByVal GroupName As String) As Integer
         Dim PropName As String = Nothing, SAuto As String = Nothing
         If SapModel.FrameObj.GetSection(Groups(GroupIndex(GroupName)).GroupObjectNames(0), PropName, SAuto) <> 0 OrElse PropName Is Nothing Then Return -1
+        If TubeMode Then
+            For Each Pre In {TubeSettings.BoxPrefix, TubeSettings.PipePrefix}
+                If PropName.StartsWith(Pre) Then PropName = PropName.Substring(Pre.Length) : Exit For
+            Next
+            Return Tubes.FindIndex(Function(c) c.Name = PropName)
+        End If
         If PropName.StartsWith(CompositeSettings.SectionPrefix) Then PropName = PropName.Substring(CompositeSettings.SectionPrefix.Length)
         Return WSections.FindIndex(Function(c) c.SectionName = PropName)
     End Function
@@ -2028,7 +2051,7 @@ Public Class ETABS_Class
         Dim Before() As Integer = CType(Sect_Ind.Clone(), Integer())
         For i = 0 To SteelFrameDesignGroupIDs.Count - 1
             Dim Ratio As Double = Groups(SteelFrameDesignGroupIDs(i)).PMMRatio
-            If Ratio > 1 Then StepVariable(Sect_Ind, i, CInt(PMM_LOG_MULTIPLIER * Math.Log(Ratio) * WSections.Count))
+            If Ratio > 1 Then StepVariable(Sect_Ind, i, CInt(PMM_LOG_MULTIPLIER * Math.Log(Ratio) * CatalogCount(i)))
         Next i
         Return Not Before.SequenceEqual(Sect_Ind)
     End Function
@@ -2036,15 +2059,16 @@ Public Class ETABS_Class
     Public Sub H_Evaluate_GeometricPenalty(ByRef Sect_Ind() As Integer)
         ETABS_print.ColumnToColumnGeometricRatio = New List(Of Double)
         For Each CtoC In GeoCons.CtoCList
-            Dim Up = WSections(Sect_Ind(VarIndex(CtoC(0))))
-            Dim Down = WSections(Sect_Ind(VarIndex(CtoC(1))))
-            ETABS_print.ColumnToColumnGeometricRatio.Add(Math.Max(Math.Max(Up.Area / Down.Area, Up.Depth / Down.Depth), 1))
+            Dim U As Integer = VarIndex(CtoC(0)), Dn As Integer = VarIndex(CtoC(1))
+            ETABS_print.ColumnToColumnGeometricRatio.Add(Math.Max(Math.Max(SecArea(U, Sect_Ind(U)) / SecArea(Dn, Sect_Ind(Dn)),
+                                                                           SecDepth(U, Sect_Ind(U)) / SecDepth(Dn, Sect_Ind(Dn))), 1))
         Next
 
         ETABS_print.BeamToColumnGeometricRatio = New List(Of Double)
         For Each BtoC In GeoCons.BtoCList
             Dim BeamFlange As Double = WSections(Sect_Ind(VarIndex(BtoC(1)))).FlangeLength
-            Dim Gap As Double = ConnectionGap(WSections(Sect_Ind(VarIndex(BtoC(0)))), BtoC(2))
+            Dim Cv As Integer = VarIndex(BtoC(0))
+            Dim Gap As Double = ColumnGap(Cv, Sect_Ind(Cv), BtoC(2))
             ETABS_print.BeamToColumnGeometricRatio.Add(If(Gap > 0, BeamFlange / Gap, GAP_FAILED_RATIO))
         Next
     End Sub
@@ -2056,7 +2080,11 @@ Public Class ETABS_Class
         Dim RebarWeight As Double = 0, ConcreteVolume As Double = 0, FormworkArea As Double = 0
         For i = 0 To SteelFrameDesignGroupIDs.Count - 1
             Dim G = Groups(SteelFrameDesignGroupIDs(i))
-            If FormInfo.CompositeColumns AndAlso G.IsComposite Then
+            If IsTubeVar(i) Then
+                Dim T As TubeSection_ = Tubes(Sect_Ind(i))
+                StructureWeight += G.GroupLength * T.SteelArea * A992Fy50Weight
+                ConcreteVolume += G.GroupLength * T.ConcreteArea * 0.000000001        'mm³ -> m³
+            ElseIf FormInfo.CompositeColumns AndAlso G.IsComposite Then
                 Dim S As EncasedIShape = Encased(Sect_Ind(i))
                 StructureWeight += G.GroupLength * S.SteelArea * A992Fy50Weight
                 RebarWeight += G.GroupLength * S.RebarArea * CompositeMat.RebarWeight
@@ -2067,6 +2095,7 @@ Public Class ETABS_Class
             End If
         Next
         If Not FormInfo.CompositeColumns Then Return StructureWeight
+        If TubeMode Then Return TubeSettings.SteelUnitCost * StructureWeight + TubeSettings.ConcreteUnitCost * ConcreteVolume
         Return CompositeSettings.SteelUnitCost * StructureWeight + CompositeSettings.RebarUnitCost * RebarWeight +
                CompositeSettings.ConcreteUnitCost * ConcreteVolume + CompositeSettings.FormworkUnitCost * FormworkArea
     End Function
@@ -2079,11 +2108,19 @@ Public Class ETABS_Class
         Dim uR As Double = If(Composite, CompositeSettings.RebarUnitCost, 0)
         Dim uC As Double = If(Composite, CompositeSettings.ConcreteUnitCost, 0)
         Dim uF As Double = If(Composite, CompositeSettings.FormworkUnitCost, 0)
+        If Composite AndAlso TubeMode AndAlso TubeSettings IsNot Nothing Then
+            uS = TubeSettings.SteelUnitCost : uR = 0 : uC = TubeSettings.ConcreteUnitCost : uF = 0
+        End If
         For i = 0 To SteelFrameDesignGroupIDs.Count - 1
             Dim G = Groups(SteelFrameDesignGroupIDs(i))
             Dim x As New CostItem_ With {.Group = G.GroupName, .Section = DescribeVariable(i, Sect_Ind(i)), .Length_m = G.GroupLength / 1000.0,
                                          .Members = If(G.GroupObjectNames Is Nothing, 0, G.GroupObjectNames.Length)}
-            If FormInfo.CompositeColumns AndAlso G.IsComposite Then
+            If IsTubeVar(i) Then
+                Dim Tb As TubeSection_ = Tubes(Sect_Ind(i))
+                x.Kind = "Composite"
+                x.SteelWeight_kN = G.GroupLength * Tb.SteelArea * A992Fy50Weight
+                x.Concrete_m3 = G.GroupLength * Tb.ConcreteArea * 0.000000001
+            ElseIf FormInfo.CompositeColumns AndAlso G.IsComposite Then
                 Dim S As EncasedIShape = Encased(Sect_Ind(i))
                 x.Kind = "Composite"
                 x.SteelWeight_kN = G.GroupLength * S.SteelArea * A992Fy50Weight
@@ -2135,6 +2172,7 @@ Public Class ETABS_Class
 
     'Printable design variable: "W360X110" or "W360X110 [EC 500x450 8D20]"
     Public Function DescribeVariable(ByVal v As Integer, ByVal SecID As Integer) As String
+        If IsTubeVar(v) Then Return Tubes(SecID).Name & " [" & Tubes(SecID).Describe() & "]"
         Dim txt As String = WSections(SecID).SectionName
         If FormInfo.CompositeColumns AndAlso Groups(SteelFrameDesignGroupIDs(v)).IsComposite Then
             Dim S As EncasedIShape = Encased(SecID)
@@ -2150,7 +2188,19 @@ Public Class ETABS_Class
         Dim filePath As String = EncasedSettings_.DefaultPath()
         Try
             CompositeSettings = If(File.Exists(filePath), EncasedSettings_.Load(filePath), New EncasedSettings_())
-            If Not File.Exists(filePath) Then Errorlogprint("Warning: " & filePath & " not found (copy it next to the program); default composite column settings are used")
+            If Not File.Exists(filePath) AndAlso Not TubeMode Then Errorlogprint("Warning: " & filePath & " not found (copy it next to the program); default composite column settings are used")
+            If TubeMode Then
+                Dim TubePath As String = TubeSettings_.DefaultPath()
+                TubeSettings = If(File.Exists(TubePath), TubeSettings_.Load(TubePath), New TubeSettings_())
+                If Not File.Exists(TubePath) Then Errorlogprint("Warning: " & TubePath & " not found (copy it next to the program); default tube settings are used")
+                If FormInfo.Costs.IsSet Then
+                    TubeSettings.SteelUnitCost = FormInfo.Costs.Steel
+                    TubeSettings.ConcreteUnitCost = FormInfo.Costs.Concrete
+                End If
+                Errorlogprint("Info: unit costs (" & If(FormInfo.Costs.IsSet, "form", "TubeSections.xml") & "): steel " & TubeSettings.SteelUnitCost &
+                              " /kN, concrete " & TubeSettings.ConcreteUnitCost & " /m3 (filled tubes: no rebar, no formwork)")
+                Return 0
+            End If
             'unit costs of the form (MainForm) replace those of the file; old backups have none
             If FormInfo.Costs.IsSet Then
                 CompositeSettings.SteelUnitCost = FormInfo.Costs.Steel
@@ -2179,19 +2229,29 @@ Public Class ETABS_Class
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetOSteel " & STEEL_MATERIAL) : Return ret : End If
         ret = SapModel.PropMaterial.GetMPIsotropic(STEEL_MATERIAL, M.Es, U, A, G)
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetMPIsotropic " & STEEL_MATERIAL) : Return ret : End If
-        ret = SapModel.PropMaterial.GetOConcrete(CompositeSettings.ConcreteMaterial, M.fc, Lw, s1, SS, SH, s2, s3, U, A)
-        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetOConcrete " & CompositeSettings.ConcreteMaterial) : Return ret : End If
-        ret = SapModel.PropMaterial.GetMPIsotropic(CompositeSettings.ConcreteMaterial, M.Ec, U, A, G)
-        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetMPIsotropic " & CompositeSettings.ConcreteMaterial) : Return ret : End If
-        ret = SapModel.PropMaterial.GetORebar(CompositeSettings.RebarMaterial, M.Fysr, Fu, EFy, EFu, SS, SH, s1, s2, Lw)
-        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetORebar " & CompositeSettings.RebarMaterial) : Return ret : End If
-        ret = SapModel.PropMaterial.GetMPUniaxial(CompositeSettings.RebarMaterial, M.Esr, A)
-        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetMPUniaxial " & CompositeSettings.RebarMaterial) : Return ret : End If
+        Dim Concrete As String = CompositeSettings.ConcreteMaterial
+        If TubeMode Then
+            ret = ResolveTubeConcrete()
+            If ret <> 0 Then Return ret
+            Concrete = TubeConcrete
+        End If
+        ret = SapModel.PropMaterial.GetOConcrete(Concrete, M.fc, Lw, s1, SS, SH, s2, s3, U, A)
+        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetOConcrete " & Concrete) : Return ret : End If
+        ret = SapModel.PropMaterial.GetMPIsotropic(Concrete, M.Ec, U, A, G)
+        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetMPIsotropic " & Concrete) : Return ret : End If
         M.SteelWeight = A992Fy50Weight
-        ret = SapModel.PropMaterial.GetWeightAndMass(CompositeSettings.ConcreteMaterial, W, Mass) : M.ConcreteWeight = W
-        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetWeightAndMass " & CompositeSettings.ConcreteMaterial) : Return ret : End If
-        ret = SapModel.PropMaterial.GetWeightAndMass(CompositeSettings.RebarMaterial, W, Mass) : M.RebarWeight = W
-        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetWeightAndMass " & CompositeSettings.RebarMaterial) : Return ret : End If
+        ret = SapModel.PropMaterial.GetWeightAndMass(Concrete, W, Mass) : M.ConcreteWeight = W
+        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetWeightAndMass " & Concrete) : Return ret : End If
+        If Not TubeMode Then        'filled tubes have no reinforcement
+            ret = SapModel.PropMaterial.GetORebar(CompositeSettings.RebarMaterial, M.Fysr, Fu, EFy, EFu, SS, SH, s1, s2, Lw)
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetORebar " & CompositeSettings.RebarMaterial) : Return ret : End If
+            ret = SapModel.PropMaterial.GetMPUniaxial(CompositeSettings.RebarMaterial, M.Esr, A)
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetMPUniaxial " & CompositeSettings.RebarMaterial) : Return ret : End If
+            ret = SapModel.PropMaterial.GetWeightAndMass(CompositeSettings.RebarMaterial, W, Mass) : M.RebarWeight = W
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetWeightAndMass " & CompositeSettings.RebarMaterial) : Return ret : End If
+        Else
+            M.Fysr = M.Fy : M.Esr = M.Es : M.RebarWeight = M.SteelWeight
+        End If
         'I1.3 (kN/mm²): 21 MPa <= f'c <= 69 MPa, Fy <= 525 MPa, Fysr <= 550 MPa
         'below 21 MPa the actual (lower) strength is used: raising it would be unconservative
         If M.fc < 0.021 Then Errorlogprint("Warning: f'c = " & M.fc * 1000 & " MPa is below 21 MPa (AISC I1.3 lower limit); actual value used")
@@ -2199,9 +2259,43 @@ Public Class ETABS_Class
         If M.Fy > 0.525 Then : Errorlogprint("Warning: Fy limited to 525 MPa (AISC I1.3)") : M.Fy = 0.525 : End If
         If M.Fysr > 0.55 Then : Errorlogprint("Warning: Fysr limited to 550 MPa (AISC I1.3)") : M.Fysr = 0.55 : End If
         CompositeMat = M
-        Errorlogprint("Info: composite columns (" & CompositeCodeName(FormInfo.CompositeCode) & ") in groups [" & String.Join(", ", Groups.Where(Function(c) c.IsComposite).Select(Function(c) c.GroupName)) &
-                      "], Fy=" & M.Fy * 1000 & " fc=" & M.fc * 1000 & " Fysr=" & M.Fysr * 1000 & " MPa")
+        Errorlogprint("Info: composite columns (" & If(TubeMode, "filled tube", "encased") & ", " & CompositeCodeName(FormInfo.CompositeCode) & ") in groups [" & String.Join(", ", Groups.Where(Function(c) c.IsComposite).Select(Function(c) c.GroupName)) &
+                      "], Fy=" & M.Fy * 1000 & " fc=" & M.fc * 1000 & If(TubeMode, " MPa (" & Concrete & ")", " Fysr=" & M.Fysr * 1000 & " MPa"))
+        If TubeMode Then
+            Try
+                Dim Log As String = Nothing
+                Dim LibFile As String = If(String.IsNullOrWhiteSpace(TubeSettings.Library), SectionPropertyData, TubeSettings.Library)
+                If Not File.Exists(LibFile) AndAlso Not String.IsNullOrWhiteSpace(LibFile) Then
+                    Dim Alt As String = Path.Combine(Path.GetDirectoryName(SectionPropertyData), Path.GetFileName(LibFile))
+                    If File.Exists(Alt) Then LibFile = Alt
+                End If
+                If Not File.Exists(LibFile) Then Errorlogprint("Warning: tube section library not found (" & LibFile & "): built-up boxes only")
+                Tubes = TubeSettings.Catalog(LibFile, M, Log)
+                Errorlogprint("Info: " & Log & " from " & Path.GetFileName(LibFile))
+                If Tubes.Count = 0 Then : Errorlogprint("No tube sections: check TubeSections.xml") : Return -1 : End If
+            Catch ex As Exception
+                Errorlogprint("Problem occurred while building the tube catalog: " & ex.Message)
+                Return -1
+            End Try
+        End If
         Return ret
+    End Function
+
+    'Fill concrete: ConcreteMaterial of TubeSections.xml if it exists in the model, otherwise the (first) concrete of the model
+    Private Function ResolveTubeConcrete() As Integer
+        Dim N As Integer, Names() As String = Nothing
+        Dim ret As Integer = SapModel.PropMaterial.GetNameList(N, Names, ETABSv1.eMatType.Concrete)
+        If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropMaterial.GetNameList (concrete)") : Return ret : End If
+        Dim L As List(Of String) = If(Names, New String() {}).Take(N).ToList()
+        Dim Wanted As String = TubeSettings.ConcreteMaterial
+        If Not String.IsNullOrWhiteSpace(Wanted) Then
+            If L.Contains(Wanted) Then TubeConcrete = Wanted : Return 0
+            Errorlogprint("Warning: concrete material '" & Wanted & "' of TubeSections.xml is not defined in the model")
+        End If
+        If L.Count = 0 Then : Errorlogprint("No concrete material in the model (Define > Material Properties): needed for the filled tubes") : Return -1 : End If
+        TubeConcrete = L(0)
+        If L.Count > 1 Then Errorlogprint("Info: concrete materials of the model [" & String.Join(", ", L) & "]; fill concrete " & TubeConcrete & " (ConcreteMaterial in TubeSections.xml selects another)")
+        Return 0
     End Function
 
     Public Shared Function CompositeCodeName(ByVal Code As CompositeCode_) As String
@@ -2222,14 +2316,77 @@ Public Class ETABS_Class
         Dim key As String = SecID & "|" & Math.Round(L, 1)
         Dim C As CompositeMemberCheck = Nothing
         If Not MemberChecks.TryGetValue(key, C) Then
-            C = New CompositeMemberCheck(Encased(SecID), L, CompositeSettings.K22, CompositeSettings.K33, CompositeSettings.B2)
+            If TubeMode Then
+                C = New CompositeMemberCheck(CompositeSec(SecID), L, TubeSettings.K22, TubeSettings.K33, TubeSettings.B2)
+            Else
+                C = New CompositeMemberCheck(Encased(SecID), L, CompositeSettings.K22, CompositeSettings.K33, CompositeSettings.B2)
+            End If
             MemberChecks(key) = C
         End If
         Return C
     End Function
 
     Private Function CompositeSectionName(ByVal SecID As Integer) As String
+        If TubeMode Then Return TubeSettings.Prefix(Tubes(SecID).Shape) & Tubes(SecID).Name
         Return CompositeSettings.SectionPrefix & WSections(SecID).SectionName
+    End Function
+
+    'Section of a composite design variable: filled tube (TubeMode) or encased W section
+    Public Function CompositeSec(ByVal SecID As Integer) As CompositeSection
+        If Not TubeMode Then Return Encased(SecID)
+        Dim S As CompositeSection = Nothing
+        If Not TubeCache.TryGetValue(SecID, S) Then
+            S = Tubes(SecID).Build(CompositeMat)
+            S.Code = FormInfo.CompositeCode
+            TubeCache(SecID) = S
+        End If
+        Return S
+    End Function
+
+    Private Function IsCompositeSectionName(ByVal PropName As String) As Boolean
+        If TubeMode Then Return PropName.StartsWith(TubeSettings.BoxPrefix) OrElse PropName.StartsWith(TubeSettings.PipePrefix)
+        Return PropName.StartsWith(CompositeSettings.SectionPrefix)
+    End Function
+
+    '_______________________________________________________________________________________________
+    'Section catalogs: W sections (steel and encased groups) or tubes (composite groups in TubeMode)
+    Public ReadOnly Property TubeMode As Boolean
+        Get
+            Return FormInfo.CompositeColumns AndAlso FormInfo.CompositeType = CompositeType_.FilledTube
+        End Get
+    End Property
+
+    Public Function IsTubeVar(ByVal v As Integer) As Boolean
+        Return TubeMode AndAlso Groups(SteelFrameDesignGroupIDs(v)).IsComposite
+    End Function
+
+    Public Function CatalogCount(ByVal v As Integer) As Integer
+        Return If(IsTubeVar(v), Tubes.Count, WSections.Count)
+    End Function
+
+    'Steel area and overall depth of section k of variable v (geometric constraints, ACO heuristic)
+    Public Function SecArea(ByVal v As Integer, ByVal k As Integer) As Double
+        Return If(IsTubeVar(v), Tubes(k).SteelArea, WSections(k).Area)
+    End Function
+
+    Public Function SecDepth(ByVal v As Integer, ByVal k As Integer) As Double
+        Return If(IsTubeVar(v), Tubes(k).H, WSections(k).Depth)
+    End Function
+
+    Public Function SecName(ByVal v As Integer, ByVal k As Integer) As String
+        Return If(IsTubeVar(v), Tubes(k).Name, WSections(k).SectionName)
+    End Function
+
+    'Index of a section name in the catalog of variable v (-1: not found)
+    Public Function FindSection(ByVal v As Integer, ByVal Name As String) As Integer
+        If IsTubeVar(v) Then Return Tubes.FindIndex(Function(c) c.Name = Name)
+        Return WSections.FindIndex(Function(c) c.SectionName = Name)
+    End Function
+
+    'Width available for the beam flange: W column (web: clear depth, flange: flange width), tube: width of the face
+    Private Function ColumnGap(ByVal v As Integer, ByVal k As Integer, ByVal ConType As String) As Double
+        If IsTubeVar(v) Then Return If(ConType = "Depth", Tubes(k).H, Tubes(k).B)
+        Return ConnectionGap(WSections(k), ConType)
     End Function
 
     '_______________________________________________________________________________________________
@@ -2242,6 +2399,8 @@ Public Class ETABS_Class
     '               analysis took 128 s instead of 10 s and a table import about 2 min.
     Private Const ENCASED_TABLE As String = "Frame Section Property Definitions - Conc Encasement Rectangle"
     Private Const COLUMN_REBAR_TABLE As String = "Frame Section Property Definitions - Concrete Column Reinforcing"
+    Private Const TUBE_TABLE As String = "Frame Section Property Definitions - Filled Steel Tube"
+    Private Const PIPE_TABLE As String = "Frame Section Property Definitions - Filled Steel Pipe"
     Public UseEncasedSections As Boolean
 
     Private Function DetectEncasedSections() As Integer
@@ -2249,9 +2408,13 @@ Public Class ETABS_Class
         Dim ret As Integer = SapModel.DatabaseTables.GetAllTables(N, Keys, Names, ImportType, IsEmpty)
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :DatabaseTables.GetAllTables") : Return ret : End If
         Dim Available As New HashSet(Of String)(If(Keys, New String() {}).Take(N))
-        UseEncasedSections = Available.Contains(ENCASED_TABLE) AndAlso Available.Contains(COLUMN_REBAR_TABLE)
+        If TubeMode Then
+            UseEncasedSections = Available.Contains(TUBE_TABLE) AndAlso (Not TubeSettings.Pipes OrElse Available.Contains(PIPE_TABLE))
+        Else
+            UseEncasedSections = Available.Contains(ENCASED_TABLE) AndAlso Available.Contains(COLUMN_REBAR_TABLE)
+        End If
         Errorlogprint("Info: composite columns: General sections during the search, " &
-                      If(UseEncasedSections, "final design checked with ETABS encased sections and the ETABS composite column design", "no ETABS composite check (needs ETABS 20+)"))
+                      If(UseEncasedSections, "final design checked with ETABS " & If(TubeMode, "filled tube", "encased") & " sections and the ETABS composite column design", "no ETABS composite check (needs ETABS 20+)"))
         Return 0
     End Function
 
@@ -2337,6 +2500,62 @@ Public Class ETABS_Class
         Return 0
     End Function
 
+    'Filled tube / pipe sections of the final design (replace the General sections of the same names). The OAPI has
+    'no setter: database tables "Filled Steel Tube" (t3, t2, tf, tw) and "Filled Steel Pipe" (t3 = D, tw); the
+    'FromFile option of the tables is ignored by ETABS 22.6, so the dimensions are written.
+    Private Function CreateTubeSections(ByVal Missing As List(Of Integer)) As Integer
+        If Missing.Count = 0 Then Return 0
+        Dim ret As Integer
+        If SapModel.GetModelIsLocked() Then
+            ret = SapModel.SetModelIsLocked(False)
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :Unlock model") : Return ret : End If
+        End If
+        Dim Fmt = Function(x As Double) x.ToString("R", CultureInfo.InvariantCulture)
+        Dim Mods() As String = {"1", "1", "1", "1", "1", "1", "1", "1"}
+        Dim BoxFields() As String = {"Name", "Material", "FromFile", "t3", "t2", "tf", "tw", "CornerRad", "FillMat", "Notes",
+                                     "AMod", "A2Mod", "A3Mod", "JMod", "I2Mod", "I3Mod", "MMod", "WMod"}
+        Dim PipeFields() As String = {"Name", "Material", "FromFile", "t3", "tw", "FillMat", "Notes",
+                                      "AMod", "A2Mod", "A3Mod", "JMod", "I2Mod", "I3Mod", "MMod", "WMod"}
+        Dim BoxRows As New List(Of String), PipeRows As New List(Of String)
+        Dim NBox As Integer = 0, NPipe As Integer = 0
+        For Each id In Missing
+            Dim T As TubeSection_ = Tubes(id)
+            If T.Shape = TubeShape_.Pipe Then
+                PipeRows.AddRange({CompositeSectionName(id), STEEL_MATERIAL, "No", Fmt(T.H), Fmt(T.t), TubeConcrete, T.Describe()})
+                PipeRows.AddRange(Mods) : NPipe += 1
+            Else
+                BoxRows.AddRange({CompositeSectionName(id), STEEL_MATERIAL, "No", Fmt(T.H), Fmt(T.B), Fmt(T.t), Fmt(T.t), "0", TubeConcrete, T.Describe()})
+                BoxRows.AddRange(Mods) : NBox += 1
+            End If
+        Next
+        If NBox > 0 Then
+            ret = SetTable(TUBE_TABLE, BoxFields, NBox, BoxRows.ToArray())
+            If ret <> 0 Then Return ret
+        End If
+        If NPipe > 0 Then
+            ret = SetTable(PIPE_TABLE, PipeFields, NPipe, PipeRows.ToArray())
+            If ret <> 0 Then Return ret
+        End If
+        Dim NFatal, NErr, NWarn, NInfo As Integer, ImportLog As String = Nothing
+        ret = SapModel.DatabaseTables.ApplyEditedTables(True, NFatal, NErr, NWarn, NInfo, ImportLog)
+        If ret <> 0 OrElse NFatal + NErr > 0 Then
+            Errorlogprint("Problem occurred on :DatabaseTables.ApplyEditedTables (filled tube sections), errors " & NFatal + NErr & Environment.NewLine & ImportLog)
+            Return If(ret <> 0, ret, -1)
+        End If
+        For Each id In Missing
+            Dim Name As String = CompositeSectionName(id)
+            Dim Want As ETABSv1.eFramePropType = If(Tubes(id).Shape = TubeShape_.Pipe, ETABSv1.eFramePropType.FilledPipe, ETABSv1.eFramePropType.FilledTube)
+            Dim PropType As ETABSv1.eFramePropType
+            If SapModel.PropFrame.GetTypeOAPI(Name, PropType) <> 0 OrElse PropType <> Want Then
+                Errorlogprint("Filled tube section " & Name & " was not created (warnings " & NWarn & ")" & Environment.NewLine & ImportLog)
+                Return -1
+            End If
+            CreatedSections.Add(Name)
+        Next
+        Errorlogprint("Info: " & Missing.Count & " filled tube sections created (" & CompositeSectionName(Missing.First()) & " ...)")
+        Return 0
+    End Function
+
     'Adds / replaces records (by "Name") of a database table. The import replaces the whole table (records that are
     'not in the edited table are deleted from the model), so the existing records are written back as well.
     Private Function SetTable(ByVal Key As String, ByVal Fields() As String, ByVal NumberRecords As Integer, ByVal Data() As String) As Integer
@@ -2381,11 +2600,12 @@ Public Class ETABS_Class
         Dim ret As Integer
         If Not Groups.Any(Function(g) g.IsComposite) Then Return 0
         InvalidateAnalysis()
-        Report("ETABS composite column design of the composite columns (encased sections)")
-        '1. the General sections of the current design -> encased sections with the same names
+        Report("ETABS composite column design of the composite columns (" & If(TubeMode, "filled tube", "encased") & " sections)")
+        '1. the General sections of the current design -> encased / filled tube sections with the same names
         Dim CompVars As List(Of Integer) = Enumerable.Range(0, SteelFrameDesignGroupIDs.Count).Where(Function(v) Groups(SteelFrameDesignGroupIDs(v)).IsComposite).ToList()
         Dim clkS = Clock("CreateSections") : clkS.Start()
-        ret = CreateEncasedSections(CompVars.Select(Function(v) Assigned(v)).Distinct().ToList())
+        Dim Ids As List(Of Integer) = CompVars.Select(Function(v) Assigned(v)).Distinct().ToList()
+        ret = If(TubeMode, CreateTubeSections(Ids), CreateEncasedSections(Ids))
         clkS.Stop()
         If ret <> 0 Then Return ret
         '2. composite column design procedure (the search set "No Design"; re-assigning the section does not reset it)
@@ -2398,11 +2618,11 @@ Public Class ETABS_Class
         Next
         Dim Proc As Integer
         SapModel.FrameObj.GetDesignProcedure(Groups(SteelFrameDesignGroupIDs(CompVars(0))).GroupObjectNames(0), Proc)
-        Errorlogprint("Info: composite columns replaced by ETABS encased sections (design procedure " & Proc & ")")
+        Errorlogprint("Info: composite columns replaced by ETABS " & If(TubeMode, "filled tube", "encased") & " sections (design procedure " & Proc & ")")
         '3. analysis of the encased model; internal check on the same analysis
         ret = E3_Analysis()
         If ret <> 0 Then Return ret
-        If AnalysisFailed Then : Errorlogprint("Warning: analysis of the encased model not finished, no ETABS composite check") : Return 0 : End If
+        If AnalysisFailed Then : Errorlogprint("Warning: analysis of the composite model not finished, no ETABS composite check") : Return 0 : End If
         ret = G1_ConsPMM(False)
         If ret <> 0 Then Return ret
         '4. ETABS composite column design
@@ -2478,9 +2698,15 @@ Public Class ETABS_Class
     'ETABS 19: General section with transformed properties (steel material, weight/mass by modifiers)
     Private Function CreateGeneralSection(ByVal SecID As Integer) As Integer
         Dim Name As String = CompositeSectionName(SecID)
-        Dim S As EncasedIShape = Encased(SecID)
+        Dim S As CompositeSection = CompositeSec(SecID)
         Dim T As TransformedSection_ = S.Transformed()
-        Dim Notes As String = "Encased " & S.Steel.SectionName & " in " & S.H & "x" & S.B & " " & CompositeSettings.ConcreteMaterial & ", " & S.RebarPos.Count & "D" & S.BarDiameter
+        Dim Notes As String
+        If TubeMode Then
+            Notes = Tubes(SecID).Describe() & " filled with " & TubeConcrete
+        Else
+            Dim Enc As EncasedIShape = Encased(SecID)
+            Notes = "Encased " & Enc.Steel.SectionName & " in " & Enc.H & "x" & Enc.B & " " & CompositeSettings.ConcreteMaterial & ", " & Enc.RebarPos.Count & "D" & Enc.BarDiameter
+        End If
         Dim ret As Integer = SapModel.PropFrame.SetGeneral(Name, STEEL_MATERIAL, T.T3, T.T2, T.Area, T.As2, T.As3, T.J, T.I22, T.I33, T.S22, T.S33, T.Z22, T.Z33, T.R22, T.R33, -1, Notes, "")
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropFrame.SetGeneral " & Name) : Return ret : End If
         Dim Modifiers() As Double = {1, 1, 1, 1, 1, 1, T.WeightModifier, T.WeightModifier}

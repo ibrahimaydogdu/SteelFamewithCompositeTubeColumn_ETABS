@@ -368,7 +368,7 @@ Partial Public Class OptimizationClass
         For d = 0 To NVar - 1
             Dim w(Ub(d) - Lb(d)) As Double
             For s = Lb(d) To Ub(d)
-                w(s - Lb(d)) = Tau(d)(s) ^ Alpha * AcoHeuristic(s) ^ Beta
+                w(s - Lb(d)) = Tau(d)(s) ^ Alpha * AcoHeuristic(d, s) ^ Beta
             Next
             Cand.DesignVariables(d) = Lb(d) + If(w.Sum() > 0, Roulette_wheel(w), CInt(Int(Rnd() * w.Length)))
         Next
@@ -377,9 +377,9 @@ Partial Public Class OptimizationClass
     Private Const TAU_MIN As Double = 0.01
 
     'lighter sections preferred: lightest area / area (math test: 1)
-    Private Function AcoHeuristic(ByVal s As Integer) As Double
-        If ETABSModel Is Nothing OrElse ETABSModel.WSections Is Nothing OrElse s >= ETABSModel.WSections.Count Then Return 1
-        Return ETABSModel.WSections(0).Area / Math.Max(ETABSModel.WSections(s).Area, 1.0E-12)
+    Private Function AcoHeuristic(ByVal d As Integer, ByVal s As Integer) As Double
+        If ETABSModel Is Nothing OrElse ETABSModel.WSections Is Nothing OrElse s >= ETABSModel.CatalogCount(d) Then Return 1
+        Return ETABSModel.SecArea(d, 0) / Math.Max(ETABSModel.SecArea(d, s), 1.0E-12)
     End Function
 
     '___________________________________________________________________________________________________________

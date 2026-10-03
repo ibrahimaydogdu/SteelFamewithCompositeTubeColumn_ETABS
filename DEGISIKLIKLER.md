@@ -4,6 +4,96 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
+## 2026-10-03 — Aşama 5: Dolgulu tüp (CFT/CFP) kompozit kolonlar
+
+**Kullanıcı kararları** (inceleme ve öneri: `Ajan/Gorevler/ASAMA5_ONERI.md`)
+- Kesitler ETABS kütüphanesinden alınacak. Program, yapma (levhadan kaynaklı) kutuları kendisi üretecek.
+- Dolgu betonu modelde tanımlı beton malzemesi olacak.
+- Boru varsayılan olarak kapalı, ayarla açılabilir. Moment çerçevesinde boruya kiriş bağlantısı zor.
+- Süzgeç: kare kutu.
+- En küçük boyut 300 mm. Kullanıcının sorusu üzerine araştırıldı:
+  - AISC 360-22 dolgulu kolon için alt sınır koymuyor;
+  - TBDY 2018 7.3.1.1 betonarme kolon için 300 mm istiyor (kompozit kolonlar Bölüm 9'da);
+  - beton dökümü ve kiriş bağlantısı da 200 mm'lik kolonu zorlaştırıyor.
+- Gömülü kesit seçeneği **kalıyor**. Tek program, formda kompozit tip seçimi.
+
+**Kod**
+- Yeni `TubeColumn.vb`:
+  - `CompositeType_` (Encased / FilledTube), `TubeShape_`, `TubeSection_`;
+  - `TubeSettings_` ve kesit kataloğu: kütüphanedeki STEEL_BOX / STEEL_PIPE (tasarım kalınlığı) + yapma kutular `BU<B>X<B>X<t>`, `MinDimension` ve Tablo I1.1a/b λmax süzgeci, çelik alanına göre sıralama.
+- Yeni `TubeSections.xml` ayar dosyası (exe yanına kopyalanır).
+- Dayanım hesabı için referanstaki `FilledBox` / `FilledPipe` sınıfları kullanıldı (I2.2, I3.4, I4, I5). Formüller değişmedi.
+- `ETABSClass.vb`:
+  - tüp modda kompozit grubun değişkeni `Tubes` listesinin indisi;
+  - W listesine bağlı yerler katalog yardımcılarıyla genelleştirildi: `IsTubeVar`, `CatalogCount`, `SecArea`, `SecDepth`, `SecName`, `FindSection`, `ColumnGap`. Etkilenen yerler:
+    - geometri onarımı ve geometri cezası;
+    - `NearestFeasible`, onarım adımları (`RepairSteps`, F2, F4, G2);
+    - final koruması (`StepUpETABSFailures`, `GeometryFits`);
+    - kesit ataması, maliyet ve maliyet dökümü, değişken açıklaması (`HSS… [CFT 559x559x23.6]`).
+  - `CompositeSec`: tüp ya da gömülü kesit.
+  - Ub/Lb: tüp grubunda Lb = 0. Ub, ilk tasarımdaki W kesitinin Fy·A değerine en az eşit Pno'lu ilk tüpten başlar; referanstaki kayma payı eklenir.
+  - Dolgu betonu `ResolveTubeConcrete` ile bulunur: ayardaki ad modelde varsa o, yoksa modelin ilk beton malzemesi. Tüp modda donatı malzemesi okunmaz.
+  - Final: `CreateTubeSections`, General kesitleri aynı adla `Filled Steel Tube/Pipe` tablolarına yazar (açık boyutlar; `FromFile` ETABS 22.6'da çalışmıyor). Ardından ETABS kompozit kolon tasarımı yapılır.
+- `Structures.vb`: `FormInfo.CompositeType`. Eski yedeklerde değer 0 olduğu için gömülü kabul edilir.
+- `MainForm`:
+  - "Composite columns" kutusunun yanına tip seçimi eklendi; varsayılan *Filled tube (box / pipe)*;
+  - tüp seçiliyken *Rebar* / *Formwork* maliyet kutuları pasif;
+  - sonuç dosyasından tip tanıma (`[CFT ` / `[CFP `);
+  - Check Structure'da kesitler `FindSection` ile okunur.
+- `OptimizationMethods.vb`: ACO'nun "hafif kesit" tercihi değişkenin kataloğunu kullanıyor (`AcoHeuristic(d, s)`). W değişkenlerinde sonuç aynı.
+- Sürüm 0.4.0. Belgeler:
+  - kılavuzda 5.2 ve yeni 7.5;
+  - `PROGRAM_KURALLARI.md` A5;
+  - `README.md`.
+
+**Testler**
+
+| Test | Sonuç |
+|---|---|
+| vbc (uygulama, MathTest, ETest, TubeTest, form testi, uçtan uca test) | hata yok |
+| MathTest (16 yöntem × Levy açık/kapalı × 3 tohum) | Aşama 3–4 çıktısıyla **birebir aynı** |
+| TubeTest (ETABS'siz, 23 kontrol) | hepsi geçti. Varsayılan katalog 149 kesit: kütüphaneden 45 kare HSS (≥ 300 mm) + 104 yapma kutu. Elle hesapla Pno: HSS 559×23,6 için 23.564 kN, Ø711×25,4 boru için 27.829 kN (C2 = 0,95). λmax süzgeci: BU1000X1000X6 atıldı, BU400X400X6 kaldı. Boru ve dikdörtgen kutu seçenekleri çalışıyor. XML ayarları okunuyor. |
+| Form testi | "Composite columns" + *Filled tube (box / pipe)* görünüyor; *Rebar* / *Formwork* kutuları pasif |
+| **Gömülü mod regresyonu** (ETABS 22.6, 525Member kopyası, tohum 12345, 2 değerlendirme) | 7121,40 / 2,0706 ve 7092,09 / 1,8054; kompozit oranlar ve önbellek tekrarı Aşama 2 referansıyla **birebir aynı** |
+| **Tüp modu uçtan uca** (525Member kopyası, AISC 360-22, SSO, 4 örümcek, 12 analiz, `Opt_Finalize` dahil) | Ayrıntılar aşağıda. |
+
+Tüp modu uçtan uca testinin ayrıntıları:
+- **Başlangıç:**
+  - katalog 149 kesit, dolgu betonu 4000Psi (modelden);
+  - sınırlar: kiriş W[12–163]; tüp grupları [0–34] … [0–71] (149 kesit içinde).
+- **Arama sırasında:** General kesitler (`CFT_…`); 6 kez kesit oluşturma, ortalama 4,9 s.
+- **Final:**
+  - 7 kesit `Filled Steel Tube` tablosuyla oluşturuldu, tasarım prosedürü 13;
+  - `m_best.$et` dosyasında örnek kesit: `SHAPE "Filled Steel Tube" D 550 B 550 TF 20 TW 20 FILLMATERIAL "4000Psi"`.
+- **İç hesap / ETABS karşılaştırması** (10 kolon grubu, PMM):
+
+  | Grup | ETABS | İç hesap |
+  |---|---|---|
+  | 5 | 0,862 | 0,868 |
+  | 6 | 0,969 | 0,975 |
+  | 7 | 0,654 | 0,658 |
+  | 8 | 0,839 | 0,844 |
+  | 9 | 0,475 | 0,456 |
+  | 10 | 0,636 | 0,611 |
+  | 11 | 0,291 | 0,296 |
+  | 12 | 0,486 | 0,491 |
+  | 13 | 0,180 | 0,188 |
+  | 14 | 0,342 | 0,349 |
+
+  En büyük ETABS / iç hesap oranı 1,041; program `CompositeStrengthFactor = 1,04` önerdi. Gömülü kesitte bu oran yaklaşık 1,04–1,12 idi; dolgulu kutuda uyum daha iyi.
+- **Süreler:**
+  - analiz ortalaması 21,9 s;
+  - ETABS kompozit kolon tasarımı (yalnızca finalde, 225 kolon) **849 s**;
+  - toplam 2022 s.
+- **Çıktılar:** sonuç XML'i, Excel, `_best.EDB` ve yedek yazıldı; çalışma klasörü silindi, ETABS kapandı.
+
+Notlar:
+- 12 analizlik bütçeyle uygun (cezasız) tasarım bulunamadı; final cezası 0,8365. Test, final yolunu en iyi bellek üyesiyle çalıştırdı. Bu kısa test bir optimizasyon sonucu değildir.
+- Grup 6 için ETABS PMM oranı 0,969 iken "Combined D/C ratio exceeded" mesajı verdi. Mesajın hangi istasyon veya kontrolden geldiği incelenmeli.
+- **Sismik süneklik:** AISC 341 (TBDY Bölüm 9) kompozit moment çerçevesinde dolgulu kolonlar için daha sıkı genişlik/kalınlık sınırları (yüksek / orta süneklik) koyar. Katalog şu an yalnızca AISC 360 λmax süzgecini uyguluyor. İstenirse ayar olarak eklenebilir.
+
+---
+
 ## 2026-10-03 — Aşama 3–4: Sosyal Örümcek Algoritması (SSO) — Fortran'dan çeviri, 16. yöntem
 
 **İstek:** "Fortran kodunu bulduysan çevir. Referans ETABS programında 15 adet optimizasyon programı var. 16. olarak SSO ekle." Plandaki Aşama 3 (inceleme) ile Aşama 4 (çeviri) birlikte yapıldı.

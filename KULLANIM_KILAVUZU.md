@@ -1,15 +1,18 @@
 # KULLANIM KILAVUZU
 
-> **Geliştirme durumu (Aşama 3–4, 0.3.0):** Program şu an referans projenin (SteelFamewithCompositeColumn_ETABS 2026.10.3) davranışında; tek fark 16. yöntem olarak eklenen SSO. Bu yüzden kompozit kolonlar gömülü kesitle (W profil + beton + donatı) çözülüyor.
+> **Geliştirme durumu (Aşama 5, 0.4.0):** Referans projeye (SteelFamewithCompositeColumn_ETABS 2026.10.3) göre farklar:
+> - 16. yöntem olarak eklenen SSO;
+> - kompozit kolon tipi olarak **dolgulu tüp** (bölüm 7.5).
+>
+> Gömülü kesit, seçenek olarak duruyor. Bu yüzden kompozit kolonlar gömülü kesitle (W profil + beton + donatı) çözülüyor.
 > Bu projenin hedefleri sonraki aşamalarda eklenecek:
-> - dolgulu tüp kolonlar (çelik kutu / boru + beton);
 > - kolon grubu başına çelik/kompozit seçimi (hibrit tasarım);
 > - Sosyal Örümcek Algoritması (SSO, Aşama 3–4'te 16. yöntem olarak eklendi);
 > - isteğe bağlı kompozit döşeme.
 
 Kompozit kolonlu uzay çelik çerçevelerin metasezgisel yöntemlerle optimum tasarımı (ETABS 22; ETABS 19 ile de çalışır).
 
-Program sürümü: 0.3.0 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
+Program sürümü: 0.4.0 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
 
 ## İçindekiler
 1. [Programın yaptığı iş](#1-programın-yaptığı-iş)
@@ -148,7 +151,7 @@ Ayar dosyası Not Defteri ile açılıp düzenlenebilir. Yalnızca `value="…"`
 3. **Structural Properties** sekmesinde:
    - Öteleme sınırlarını girin; varsayılan H/300 ve h/300.
    - Çelik tasarım kodunu seçin; varsayılan AISC 360-22.
-   - Kompozit kolon isteniyorsa *Encased composite columns* kutusunu işaretleyin ve birim maliyetleri kontrol edin.
+   - Kompozit kolon isteniyorsa *Composite columns* kutusunu işaretleyin, yanındaki listeden tipini seçin (*Filled tube* veya *Encased*) ve birim maliyetleri kontrol edin.
 4. **Optimization parameters** sekmesinde:
    - Yöntemi seçin; ilk deneme için *Harmony Search* veya *Teaching-Learning*.
    - *Memory / population size* ve *Max. analyses* değerlerini girin. Deneme için 10 ve 100; gerçek koşu için bkz. bölüm 6.
@@ -240,7 +243,10 @@ Kompozit kolonlarda B2 = 1 kabul edilir (`EncasedSections.xml`); bu yüzden anal
 - Kutu işaretli değilse ilgili kısıt kullanılmaz.
 
 **Analysis / Composite Options**
-- *Encased composite columns*: kolon gruplarını gömülü kompozit kolon olarak tasarlar.
+- *Composite columns*: kolon gruplarını kompozit kolon olarak tasarlar. Yanındaki listeden tip seçilir:
+  - *Filled tube (box / pipe)* (varsayılan): beton dolgulu çelik kutu (veya boru). Bkz. bölüm 7.5.
+  - *Encased (W + concrete + rebar)*: W profilin etrafı donatılı betonla kaplanır. Bkz. bölüm 7.1.
+  - Dolgulu tüpte donatı ve kalıp yoktur; bu yüzden *Rebar* ve *Formwork* birim maliyet kutuları pasiftir.
   - İşaretliyken **yalnızca kolonlar** kompozit olur: tüm üyeleri düşey olan çelik gruplar gömülü kompozit kolondur, kirişler ve diğer gruplar çelik kalır.
   - İşaretli değilse tüm gruplar çeliktir ve maliyet çelik ağırlığıdır (kN).
   - Koşunun kompozit çalıştığı, günlükteki `Info: composite columns (…) in groups [...]` satırından ve sonuçta `[EC …]` ile yazılan kesitlerden anlaşılır.
@@ -440,6 +446,41 @@ Arama sırasında kolonlar hızlı iç çözücüyle kontrol edilir. Koşu sonun
 - **Kalibrasyon:** günlükteki `ETABS / internal composite strength ratio (max)` satırı, iç çözücüyü ETABS ile uyumlu yapacak `CompositeStrengthFactor` değerini önerir (525M modelinde 1,08–1,12). Bu değeri ayar dosyasına yazarsanız arama ETABS ile uyumlu ve güvenli tarafta yürür; final koruması daha az devreye girer.
 
 ---
+
+### 7.5 Dolgulu tüp kolonlar (`TubeSections.xml`)
+Formda *Composite columns* + *Filled tube* seçildiğinde kolon gruplarının tasarım değişkeni, W listesi yerine bir **tüp kataloğundaki** kesittir. Katalog çelik alanına göre sıralanır. Ayarlar exe'nin yanındaki `TubeSections.xml` dosyasındadır.
+
+**Katalog** (varsayılan ayarlarla 149 kesit):
+- **Kütüphane kesitleri:** programın kesit kütüphanesindeki (`SectionPropertyDataPath`, ETABS 22'de `AISC16M.xml`) kare HSS kutular. Et kalınlığı kütüphanedeki tasarım kalınlığıdır (0,93 t).
+  - `RectangularBoxes`: dikdörtgen kutular (varsayılan hayır).
+  - `Pipes`: borular (varsayılan hayır). Moment çerçevesinde boruya kiriş bağlantısı (halka, diyafram) zordur ve ETABS 22.6 bazı borularda "Section is too slender" mesajı veriyor.
+- **Yapma kutular** (`BuiltUpBoxes`): levhadan kaynaklı kare kutular. `BuiltUpMin`–`BuiltUpMax` arası, `BuiltUpStep` adımıyla (varsayılan 400–1000 mm, 50 mm adım), `BuiltUpThicknesses` levha kalınlıklarıyla (12, 15, 20, 25, 30, 35, 40, 50 mm).
+  - Kütüphanedeki en büyük kare kutu 559 mm'dir. Çok katlı yapıların alt katları için yapma kutular gerekir.
+- **`MinDimension`** (varsayılan 300 mm): en küçük dış boyut.
+  - AISC 360-22 dolgulu kolon için bir alt sınır koymaz.
+  - 300 mm, TBDY 2018 7.3.1.1'deki betonarme kolon alt sınırıdır. Ayrıca beton dökümü ve kiriş bağlantısı için uygulamada makul bir değerdir.
+- AISC 360-22 Tablo I1.1a / I1.1b'deki λmax sınırını aşan kesitler katalogdan çıkarılır. Kompakt olmayan ve narin kesitler kalır; dayanımları I2.2 ve I3.4'e göre azaltılır.
+
+**Malzemeler:**
+- **Çelik:** modeldeki kolon çeliği (A992Fy50).
+- **Dolgu betonu:** modelde tanımlı beton malzemesi. Birden fazla beton varsa ilki kullanılır; `ConcreteMaterial` ile başka biri seçilebilir.
+
+**Kontroller** (iç çözücü, `CompositeColumn.vb` `FilledBox` / `FilledPipe`):
+- I2.2: sınıf, Pno, EIeff (C3);
+- I3.4: eğilme;
+- I4: kesme; 360-22'de beton katkısı dahil;
+- I5 / H1: etkileşim;
+- en az %1 çelik oranı.
+
+**Arama ve final:**
+- Arama sırasında tüp kolonlar, dönüştürülmüş özellikli General kesit (`CFT_<ad>`) olarak analiz edilir.
+- Finalde aynı adla gerçek **Filled Steel Tube / Pipe** kesitlerine çevrilir ve ETABS kompozit kolon tasarımıyla doğrulanır (bölüm 7.4).
+
+**Maliyet:** çelik ağırlığı × *Steel* + beton hacmi × *Concrete*. Donatı ve kalıp yoktur.
+
+**Arama sınırları:**
+- Alt sınır kataloğun en küçük kesitidir.
+- Üst sınır, ilk tasarımdaki W kesitinin Fy·As değerine en az eşit Pno'ya sahip ilk tüpten başlar; referanstaki gibi kayma payı eklenir.
 
 ## 8. Koşuyu izleme, durdurma ve devam ettirme
 
