@@ -22,8 +22,9 @@
 
 ## Aşama 5 — Dolgulu tüp kolon (CFT/CFP)
 - [x] Kesit kaynağı: ETABS kütüphanesi (kullanıcı kararı).
-- [ ] (?) Beton sınıfı, kütüphane süzgeci.
-- [ ] ETABS'te dolgulu kesit tanımı (DatabaseTables) için API testi.
+- [x] Beton: modelde tanımlı malzeme (kullanıcı kararı).
+- [x] Kütüphane incelemesi ve API testi (460Member kopyası) → `ASAMA5_ONERI.md`.
+- [ ] (?) Öneriyi onayla: yapma kutu listesi, gömülü seçeneğinin kalması, borunun varsayılanı, süzgeç.
 - [ ] İç çözücü (AISC 360-22 I2.2) ve ETABS ile karşılaştırma.
 
 ## Aşama 6 — Hibrit tasarım

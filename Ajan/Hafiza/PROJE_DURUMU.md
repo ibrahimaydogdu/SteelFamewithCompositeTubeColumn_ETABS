@@ -38,4 +38,8 @@ Aşama 2'de ölçüldü. Ayrıntı için bkz. `DEGISIKLIKLER.md`.
 
 - ETABS 22 `eFramePropType` değerleri: I = 1, Box = 6, Pipe = 7, FilledTube = 29, FilledPipe = 30, EncasedRectangle = 31.
 - OAPI'de dolgulu kesit tanımlayan bir `Set` metodu yok (yalnızca `SetTube` var). Referans proje gömülü kesiti `DatabaseTables` ile yazıyor; dolgulu kesit için de aynı yol denenecek.
+- Dolgulu kesit tabloları: `Frame Section Property Definitions - Filled Steel Tube` (t3, t2, tf, tw, FillMat) ve `- Filled Steel Pipe` (t3 = çap, tw). Açık boyutla ekleme çalışıyor; `FromFile = Yes` çalışmıyor. `GetSectProps` brüt b·h alanını döndürüyor.
+- ETABS kompozit kolon tasarımı kolon başına 1,5–2,7 s; arama sırasında kullanılamaz.
+- Boru CFP_711x25.4 için ETABS "Section is too slender -- (D/t) high" mesajı verdi (D/t = 28); incelenmeli.
+- AISC16M'de en büyük kare kutu 559×559×23,6 mm, en büyük boru Ø711×25,4 mm.
 - `DesignCompositeColumn` için ETABS 22 kodları: AISC 360-22, CSA S16-19/24, Eurocode 4-2004, IS 11384-2022. `GetSummaryResults` ETABS 22.6'da kaymış veri döndürüyor; sonuçlar tablodan okunmalı (referans PROGRAM_KURALLARI B5).
