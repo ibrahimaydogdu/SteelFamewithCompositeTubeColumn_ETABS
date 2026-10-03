@@ -1,0 +1,38 @@
+# Visual Studio / derleme çıktıları
+.vs/
+bin/
+obj/
+packages/
+*.user
+*.suo
+
+# CSI dosyaları (ETABS kurulumuyla gelir; dağıtılmaz)
+*.chm
+*.chw
+AISC14M.xml
+ETABS*.dll
+ETABS*.tlb
+ETABS.exe
+
+# ETABS model ve analiz dosyaları (karar verilene kadar depoya girmez)
+*.EDB
+*.ebk
+*.$et
+*.e2k
+*.Y
+*.Y$$
+*.Y0*
+*.Y~*
+*.K~*
+*.msh
+*.LOG
+*.OUT
+*.WRN
+*.tlog
+SSO_CF/ETABS/**/*.ico
+SSO_CF/ETABS/**/*.xlsx
+
+# Çalışma çıktıları
+ErrorLog.txt
+BackUp.xml
+dist/
