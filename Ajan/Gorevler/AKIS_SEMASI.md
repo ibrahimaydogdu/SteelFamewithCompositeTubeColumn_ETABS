@@ -1,6 +1,6 @@
 # Akış Şeması (Pipeline)
 
-- **Durum:** 2026-10-03. Kullanıcı Aşama 2'yi onayladı; Aşama 3 ve sonrası taslak halinde.
+- **Durum:** 2026-10-03. Aşama 1–4 tamamlandı. Aşama 5 ve 6 için kullanıcı kararları alındı (Bölüm 4).
 - **Referans:** `..\SteelFamewithCompositeColumn_ETABS`, sürüm 2026.10.3. Aşama 1–17 tamamlanmış ve test edilmiş.
 
 ## 0. Hedef (kullanıcı kararları, 2026-10-03)
@@ -8,9 +8,9 @@
 | Konu | Referans proje | Bu proje |
 |---|---|---|
 | Kompozit kolon tipi | gömülü: W profil + beton + donatı (`EncasedRectangle`) | **dolgulu tüp:** çelik kutu (CFT, `FilledTube = 29`) veya boru (CFP, `FilledPipe = 30`) + beton |
-| Kolon tipi seçimi | tüm kolonlar birlikte çelik **ya da** kompozit (`FormInfo.CompositeColumns`) | **hibrit:** her kolon grubu ayrı ayrı çelik veya kompozit |
+| Kolon tipi seçimi | tüm kolonlar birlikte çelik **ya da** kompozit (`FormInfo.CompositeColumns`) | **hibrit:** kolon grubu başına çelik/kompozit; hem kullanıcı belirleyebilir hem optimizasyon değişkeni olabilir. Amaç: "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu. |
 | Döşeme | — | isteğe bağlı: kompozit döşeme tasarımı |
-| Yöntemler | 15 metasezgisel | 15 + **Sosyal Örümcek Algoritması (SSO)**; Fortran'dan aktarılacak |
+| Yöntemler | 15 metasezgisel | 15 + **Sosyal Örümcek Algoritması (SSO)**; Fortran'dan çevrildi (Aşama 3–4) |
 | Lisans / depo | MIT | MIT; ETABS modelleri (`.EDB`, `.$et`) depoya girer |
 
 ## 1. Referanstan çekilen ve çekilecek veriler
@@ -41,8 +41,8 @@ Fortran kaynakları (`Algoritmalar\fortran\SocialSpider\`):
 Aşama 1  Ajan mimarisi + depo + kayıt dosyaları                          [bitti]
 Aşama 2  Referans kodun aktarılması, eski iskeletin kaldırılması          [bitti]
    │       test: derleme, MathTest = referans, 525M kopyası ETABS testi = referans
-Aşama 3  Fortran SSO incelemesi (F1–F3) → bulgu raporu
-Aşama 4  SSO → VB.NET (OptimizationMethods + MethodCatalog); matematik testleri
+Aşama 3–4 Fortran SSO incelemesi + VB.NET çevirisi (16. yöntem)                [bitti]
+         notlar: Yetenekler/Optimizasyon_Yetenegi/SSO_CEVIRI_NOTLARI.md
 Aşama 5  Dolgulu tüp kolon (CFT/CFP):
    │       - kesit kataloğu: kutu/boru profil listesi + beton
    │       - ETABS'te kesit tanımı (OAPI'de Set metodu yok → DatabaseTables; API testiyle doğrulanacak)
@@ -80,11 +80,12 @@ Her aşamada izlenen adımlar:
 
 ## 4. Açık sorular (ilgili aşamada sorulacak)
 
-1. **Aşama 5:**
-   - Kutu ve boru kesit listesi nereden alınacak? Seçenekler:
-     - AISC 16 HSS kütüphanesi (`AISC16M.xml`, ETABS kurulumunda);
-     - `Modeller/525M/CompositeSections.txt` (300x300x12.7 … 1000x1000x31);
-     - özel bir liste.
-   - Beton sınıfı ne olacak?
-2. **Aşama 6:** Hibrit seçim kullanıcı tarafından mı yapılacak, optimizasyon değişkeni olarak mı, yoksa ikisi birden mi?
+1. **Aşama 5 — karar (kullanıcı, 2026-10-03):** Tüp kesitler **ETABS kütüphanesinden** alınacak.
+   - Kaynak: ETABS kurulumundaki `Property Libraries`, örn. `AISC16M.xml`. HSS dikdörtgen/kare kesitler CFT için, boru (Pipe/HSS round) kesitler CFP için kullanılacak.
+   - Hâlâ açık: beton sınıfı (modeldeki beton malzemesi mi?) ve kütüphane süzgeci (yalnızca kare kutu mu, dikdörtgen de mi; en küçük boyut).
+2. **Aşama 6 — karar (kullanıcı, 2026-10-03):** Kolon tipi **hem kullanıcı tarafından belirlenebilecek hem de optimizasyon değişkeni olacak.** Amaç, "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu. Tasarım taslağı (Aşama 6'da onaya sunulacak):
+   - Her kolon grubu için kullanıcı seçimi: *Steel* / *Composite* / *Optimize*.
+   - *Optimize* gruplar kolon hatlarına ve kata göre sıralanır. Her hat için bir **geçiş katı değişkeni** k: k'nın altındaki gruplar kompozit, üstündekiler çelik (k = 0: tümü çelik, k = en üst: tümü kompozit). Böylece "alt katlar kompozit, üst katlar çelik" kurgusu tek değişkenle aranır.
+   - Kesit değişkeni grup tipine göre W havuzundan ya da tüp havuzundan seçilir.
+   - Maliyet: çelik + beton (tüp kalıp görevi gördüğü için kalıp yok).
 3. **Aşama 8:** Kompozit döşeme kapsamı: ETABS kompozit kiriş tasarımı mı (`DesignCompositeBeam`), döşeme kalınlığı ve sac profil seçimi mi?

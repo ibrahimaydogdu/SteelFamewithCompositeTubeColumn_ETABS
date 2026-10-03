@@ -15,20 +15,20 @@
 - [x] MathTest: referansla birebir aynı.
 - [x] 525M kopyası üzerinde ETABS testi: referans derlemeyle karşılaştırıldı.
 
-## Aşama 3 — Fortran SSO incelemesi
-- [ ] F1, F2 ve F3'ü karşılaştır; bulgu raporunu hazırla.
-
-## Aşama 4 — SSO'nun VB.NET'e aktarılması
-- [ ] `OptimizationMethods.vb` dosyasına SSO'yu ekle ve `MethodCatalog`'a kaydet; parametreler formda görünsün.
-- [ ] Matematik testleri ve Fortran ile davranış karşılaştırması.
+## Aşama 3–4 — Fortran SSO incelemesi ve çevirisi (2026-10-03) ✔
+- [x] F1, F2 ve F3 karşılaştırıldı; 8 hata bulundu ve taşınmadı (`SSO_CEVIRI_NOTLARI.md`).
+- [x] `SocialSpider.vb`; `OptMethod_.SocialSpider = 15`, katalog girdisi, `Member_.IsMale`, `AlgorithmState_.SpiderFemales`.
+- [x] Testler: MathTest (diğer 15 yöntem değişmedi), SSO testi, form görüntüsü, ETABS uçtan uca testi.
 
 ## Aşama 5 — Dolgulu tüp kolon (CFT/CFP)
-- [ ] (?) Kesit listesi ve beton sınıfı.
+- [x] Kesit kaynağı: ETABS kütüphanesi (kullanıcı kararı).
+- [ ] (?) Beton sınıfı, kütüphane süzgeci.
 - [ ] ETABS'te dolgulu kesit tanımı (DatabaseTables) için API testi.
 - [ ] İç çözücü (AISC 360-22 I2.2) ve ETABS ile karşılaştırma.
 
 ## Aşama 6 — Hibrit tasarım
-- [ ] (?) Seçimi kim yapacak: kullanıcı mı, optimizasyon değişkeni mi?
+- [x] Karar: hem kullanıcı hem optimizasyon değişkeni; "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu.
+- [ ] Tasarımı (geçiş katı değişkeni, grup tipi Steel/Composite/Optimize) onaya sun.
 
 ## Aşama 7 — Uçtan uca koşu
 ## Aşama 8 — (isteğe bağlı) Kompozit döşeme

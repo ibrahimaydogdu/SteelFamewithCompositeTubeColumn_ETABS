@@ -1,6 +1,6 @@
 # Proje Durumu
 
-**Son güncelleme:** 2026-10-03, Aşama 2.
+**Son güncelleme:** 2026-10-03, Aşama 3–4 (SSO).
 
 ## Kimlik
 
@@ -16,7 +16,9 @@
 |---|---|
 | Çalışma dizini | SFCS kopyalanarak depo adıyla yeni klasör açıldı. SFCS ve SSO_CF orijinal haliyle duruyor. |
 | Kolon tipi | dolgulu tüp (CFT/CFP); gömülü kesit değil |
-| Kolon tipi seçimi | grup başına çelik veya kompozit (hibrit) |
+| Kolon tipi seçimi | grup başına çelik veya kompozit (hibrit). Hem kullanıcı belirleyebilir hem optimizasyon değişkeni. Amaç: "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu (Aşama 6). |
+| Tüp kesit kaynağı | ETABS kütüphanesi (`Property Libraries`, ör. AISC16M) (Aşama 5) |
+| SSO | Fortran'dan çevrildi, 16. yöntem (Aşama 3–4) |
 | Kompozit döşeme | isteğe bağlı, sonra ele alınacak |
 | Depo adındaki "Tube" | kolonların tüp olmasını anlatıyor (çekirdek perde değil); ad kalıyor |
 | Eski iskelet kod | kaldırıldı (Aşama 2) |

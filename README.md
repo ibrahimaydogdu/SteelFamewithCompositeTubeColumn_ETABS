@@ -1,11 +1,10 @@
 # Steel Frame Optimization with Composite Tube Columns (ETABS)
 
-> **Status: in development (0.2.0).** This project starts from
+> **Status: in development (0.3.0).** This project starts from
 > [SteelFamewithCompositeColumn_ETABS](https://github.com/ibrahimaydogdu/SteelFamewithCompositeColumn_ETABS) (2026.10.3).
-> At this stage it behaves like that program. Planned:
+> At this stage it behaves like that program, with Social Spider Optimization added as the 16th method. Planned:
 > - concrete-filled steel tube columns (box and pipe);
 > - a hybrid design where each column group can be steel or composite;
-> - the Social Spider Optimization algorithm;
 > - optional composite floor design.
 >
 > The text below describes the inherited features.
@@ -18,7 +17,7 @@ formwork in composite mode.
 *Türkçe kullanım kılavuzu: [KULLANIM_KILAVUZU.md](KULLANIM_KILAVUZU.md)*
 
 ## Features
-- **15 optimization methods:**
+- **16 optimization methods:**
   - Harmony Search
   - Biogeography-Based Optimization
   - Whale Optimization
@@ -34,6 +33,7 @@ formwork in composite mode.
   - Grey Wolf Optimizer
   - Honey Badger Algorithm
   - Aquila Optimizer
+  - Social Spider Optimization (translated from the author's Fortran code)
 - **Constraints:**
   - ETABS steel design (AISC 360-22 / 360-16 / 360-10);
   - inter-story and top drift, with service lateral cases and seismic drift amplification (Cd/Ie or R/I);

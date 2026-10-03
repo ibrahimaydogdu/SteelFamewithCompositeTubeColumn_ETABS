@@ -59,6 +59,7 @@ Partial Public Class OptimizationClass
             Case OptimizationStructure_.OptMethod_.GreyWolf : Main_GreyWolf(Imem, ret)
             Case OptimizationStructure_.OptMethod_.HoneyBadger : Main_HoneyBadger(Imem, ret)
             Case OptimizationStructure_.OptMethod_.Aquila : Main_Aquila(Imem, ret)
+            Case OptimizationStructure_.OptMethod_.SocialSpider : Main_SocialSpider(Imem, ret)
         End Select
     End Sub
     Private Sub Main_HarmonySearch(ByRef Imem As Integer, ByRef ret As Integer)

@@ -4,6 +4,66 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
+## 2026-10-03 — Aşama 3–4: Sosyal Örümcek Algoritması (SSO) — Fortran'dan çeviri, 16. yöntem
+
+**İstek:** "Fortran kodunu bulduysan çevir. Referans ETABS programında 15 adet optimizasyon programı var. 16. olarak SSO ekle." Plandaki Aşama 3 (inceleme) ile Aşama 4 (çeviri) birlikte yapıldı.
+
+**Kaynaklar** (`fortran\SocialSpider\`):
+- `SSO_Column\SSO.f90` (2015);
+- `SSO_Frame\SSO.f90` (2018);
+- `SSO.m`;
+- Cuevas vd. (2013).
+
+Karşılaştırma, çeviri kararları ve taşınmayan 8 hata `Ajan/Yetenekler/Optimizasyon_Yetenegi/SSO_CEVIRI_NOTLARI.md` dosyasında. Taşınmayan hataların başlıcaları:
+- sınır kırpmasında önceki döngüden kalan `k` indisi;
+- yuvarlamanın yeni tasarım yerine eski konuma yazılması;
+- en iyi örümcek ile en iyi dişinin karışması ve dizi dışına taşma;
+- toplamı 1'i aşan rulet olasılıkları.
+
+**Kod**
+- Yeni dosya `SocialSpider.vb` (`Partial Class OptimizationClass`):
+  - `Main_SocialSpider`: dişi ve erkek hareketleri;
+  - `SpiderMating`: baskın erkeklerin çiftleşmesi;
+  - isteğe bağlı `SpiderJump` (SSO_Column eki);
+  - yardımcılar: ağırlık, titreşim uzaklığı, medyan, cinsiyet dengesi.
+- `Structures.vb`:
+  - `OptMethod_.SocialSpider = 15`;
+  - `Member_.IsMale`: örümceğin cinsiyeti; bellek her döngüde sıralandığı için üyeyle birlikte taşınıyor;
+  - `AlgorithmState_.SpiderFemales`: dişi sayısı, yedeğe girer.
+  - Alanlar yalnızca eklendi; eski yedekler okunabilir.
+- `OptimizationClass.Main`: SSO çağrısı eklendi.
+- `OptimizationMethods.vb`:
+  - `InitMethodState` SSO durumunu kuruyor;
+  - katalog girdisi eklendi: PF 0,7; çiftleşme yarıçapı 0,5 × aralık; kabul *If better* / *Always*; *Spider jump* hayır.
+- `.vbproj`: `SocialSpider.vb` eklendi.
+- Sürüm 0.3.0.
+- Belgeler:
+  - `KULLANIM_KILAVUZU.md`: 6.1 yöntem tablosu, 6.2 SSO önerileri, durum notu;
+  - `README.md`: 16 yöntem;
+  - `PROGRAM_KURALLARI.md`: A3, B6;
+  - `Ajan/`: akış şeması, kuyruk, hafıza.
+
+**Kullanıcı kararları (bu aşamada alındı, sonraki aşamalara işlendi)**
+- **Aşama 5:** tüp kesitler ETABS kütüphanesinden alınacak.
+- **Aşama 6:** kolon tipi hem kullanıcı tarafından belirlenebilecek hem de optimizasyon değişkeni olacak. Amaç, "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu. Taslak tasarım `Ajan/Gorevler/AKIS_SEMASI.md` Bölüm 4'te.
+
+**Testler**
+
+| Test | Sonuç |
+|---|---|
+| vbc derlemesi (uygulama, MathTest, SSO testi, form testi, uçtan uca test) | hata yok |
+| MSBuild (VS 2026) `Rebuild` | 0 hata, 0 uyarı |
+| MathTest (dişli treni, 3000 analiz, 20 üye, 3 tohum) | ilk 30 satır (15 yöntem) Aşama 2 referans çıktısıyla **birebir aynı**. SSO: 2,31E-11 / 1,18E-09 / 2,70E-12, Levy ile aynı (SSO Levy kullanmıyor); hata yok. |
+| SSO testi: 7 parametre bileşimi × N = 20/5/2 × 3 tohum | hata, sınır dışı değişken veya durma yok; dişi sayısı her döngüde korundu (`genderErr = 0`); yedek XML gidiş-dönüşünde cinsiyetler ve dişi sayısı aynı. Döngü başına analiz ≈ 1,0–1,15·N, sıçramayla ≈ 1,35–1,5·N. |
+| Form testi (ekran görüntüsü) | yöntem listesinde 16 öğe, sonuncusu "Social Spider (SSO)"; parametre kutusu katalogdan kuruluyor. Kabul seçeneğinin metni kutuya sığmıyordu; kısaltıldı. |
+| ETABS 22.6 uçtan uca: `525Member` kopyası, kompozit mod, AISC 360-22, tohum 12345, 4 örümcek, 12 analiz, `Opt_Finalize` dahil | başlangıç 490 s; başlangıç belleği 8 analiz, en iyi 8670,7; 1. döngü sonunda 15 analiz, uygun tasarım 8670,71. Final ETABS kompozit doğrulaması çalıştı; sonuç XML'i, Excel, `_best.EDB` ve yedek yazıldı; çalışma klasörü silindi, ETABS kapandı. Toplam 1458 s. Yedekte `SocialSpider`, `SpiderFemales = 2` ve 2 dişi / 2 erkek. |
+
+Notlar:
+- Uçtan uca testteki tek uyarı, referansta da bilinen kalibrasyon önerisi: ETABS / iç kompozit oranı en fazla 1,040, öneri `CompositeStrengthFactor = 1,04`. Referans kurallarında önerilen aralık 1,08–1,12.
+- Bu makinede Fortran derleyicisi (gfortran, Intel ifort/ifx, flang) olmadığı için Fortran ile adım adım sayısal karşılaştırma yapılamadı. Davranış, makale ve üç kaynak sürümle formül düzeyinde karşılaştırıldı.
+
+---
+
 ## 2026-10-03 — Aşama 2: Referans kodun aktarılması, eski iskeletin kaldırılması
 
 **Kullanıcı kararları (Aşama 1 sorularına cevap)**

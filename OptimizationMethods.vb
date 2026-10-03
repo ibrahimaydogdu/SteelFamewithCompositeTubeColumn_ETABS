@@ -77,6 +77,11 @@ Public Module MethodCatalog
           {P("Beta", "Ability to get food (beta)", 6, 1, 20), P("C", "Density constant C", 2, 1, 10)})
         Add(OptimizationStructure_.OptMethod_.Aquila, "Aquila Optimizer (AO)", "Expanded and narrowed exploration (high soar, contour flight with Levy), expanded and narrowed exploitation (low flight, walk and grab); greedy selection.", "Abualigah et al. 2021", False, Nothing,
           {P("Alpha", "Exploitation alpha", 0.1, 0, 1), P("Delta", "Exploitation delta", 0.1, 0, 1)})
+        Add(OptimizationStructure_.OptMethod_.SocialSpider, "Social Spider (SSO)", "Female and male spiders move by the vibrations of the nearest better spider, the best spider and the nearest female; dominant males mate with the females within the mating radius (roulette on the weights). About 1.1 analyses per member and loop (up to 1.5 with the jump).", "Cuevas et al. 2013; Fortran code of I. Aydogdu", False, Nothing,
+          {P("PF", "Probability of attraction (PF)", 0.7, 0, 1, Tip:="female: rand < PF moves toward the vibrations, otherwise away"),
+           P("Radius", "Mating radius (x range)", 0.5, 0, 1, Tip:="a female mates for a variable if |female - male| <= radius x (Ub - Lb); 0.5 as in the Fortran code"),
+           P("Greedy", "Accept a move", 1, 0, 1, Choices:={"Always (SSO)", "If better"}, Tip:="Always: original SSO; If better: greedy, as the Fortran option greedyselection = 1"),
+           P("Jump", "Spider jump", 0, 0, 1, Choices:={"No", "Yes"}, Tip:="after mating every spider keeps a variable with probability 0.7 + 0.25 w (SSO_Column); +1 analysis per member")})
         Return L
     End Function
 
@@ -270,6 +275,8 @@ Partial Public Class OptimizationClass
                     S.Leaders = Memory.OrderBy(Function(c) c.PenalizedCost).Take(3).Select(Function(c) CopyMember(c)).ToList()
                     While S.Leaders.Count < 3 : S.Leaders.Add(CopyMember(S.Leaders(0))) : End While
                 End If
+            Case OptimizationStructure_.OptMethod_.SocialSpider
+                If Not OnlyIfMissing OrElse S.SpiderFemales <= 0 Then SpiderInit()
         End Select
     End Sub
 

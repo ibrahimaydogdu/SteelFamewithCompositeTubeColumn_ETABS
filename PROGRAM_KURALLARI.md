@@ -35,10 +35,10 @@ Diğer belgeler:
 - **Lisans ve depo:** lisans MIT. ETABS model dosyaları (`.EDB`, `.$et`) depoya girer; analiz çıktıları girmez.
 
 ### A3. Durum (Aşama 2)
-- Kod, referans projenin (sürüm 2026.10.3) **değiştirilmemiş** kopyası.
+- Kod, referans projenin (sürüm 2026.10.3) kopyası. Tek ekleme 16. yöntem SSO (Aşama 3–4; `SocialSpider.vb`).
 - Kök ad alanı ve exe adı `FrameSap2000` olarak korundu, böylece ayar ve yedek dosyaları uyumlu kalıyor.
 - Değişenler yalnızca şunlar:
-  - ürün adı ve sürüm (0.2.0);
+  - ürün adı ve sürüm (0.3.0);
   - pencere başlığı;
   - proje/çözüm adları ve GUID'leri.
 - Aşağıdaki B bölümü referansın kurallarıdır ve koda birebir uyar. CFT/CFP ve hibrit tasarım eklendikçe B bölümü güncellenecek. Şimdilik "kompozit" dendiğinde gömülü kesit kastediliyor.
@@ -197,9 +197,13 @@ Kurallar:
 ### B6. Algoritmalar
 - **Yöntem kataloğu** (`OptimizationMethods.vb`, `MethodCatalog`): her yöntemin adı, açıklaması, kaynağı, parametreleri (`ParamDef_`: anahtar, etiket, varsayılan, sınırlar, tam sayı / seçenek), `UsesMemoryUpdate` ve `LevyNote` bilgisi buradadır. Form parametre kutusunu buradan kurar. Yeni bir yöntem için: `OptMethod_` sonuna değer, katalogda tanım, `Main_<yöntem>` ve `OptimizationClass.Main` içinde çağrı eklenir.
 - Parametre değerleri: HS ve BBO kendi yapılarındadır (eski yedeklerle uyum), diğerleri `OptInfo.Params` (`MethodParam_`) içindedir. Okuma ve yazma `MethodCatalog.GetParam` / `SetParam` ile yapılır; eksik değerde katalog varsayılanı kullanılır.
-- Yöntem durumu `OptInfo.State` (`AlgorithmState_`) alanındadır ve yedeğe girer: ABC `Trials`, ACO `Pheromone`, GWO `Leaders`. `InitMethodState` başlangıç belleğinden sonra, `InitMethodState(True)` yedekten devamda eksik veya boyutu yanlış durumu kurar. `ClearDuplicates` belleği değiştirirse üye başına durum (ABC) sıfırlanır.
+- Yöntem durumu `OptInfo.State` (`AlgorithmState_`) alanındadır ve yedeğe girer: ABC `Trials`, ACO `Pheromone`, GWO `Leaders`, SSO `SpiderFemales`. SSO'da örümceğin cinsiyeti `Member_.IsMale` alanındadır; bellek her döngüde sıralandığı için sıra numarası kullanılamaz. Yeni bir tasarım üyenin yerine geçerken cinsiyeti korunur (`Cand.IsMale = Memory(hedef).IsMale`). Diğer yöntemler bu alanı kullanmaz. `InitMethodState` başlangıç belleğinden sonra, `InitMethodState(True)` yedekten devamda eksik veya boyutu yanlış durumu kurar. `ClearDuplicates` belleği değiştirirse üye başına durum (ABC) sıfırlanır.
 - Yeni yöntemler (ABC, ACO, BSO, Crow, Firefly, GOA, TLBO, TSA, GWO, HBA, AO) sürekli konumu `ToMember` ile yuvarlayıp sınırlara kırpar. Değerlendirme `EvaluateOnly` (onarım, önbellek, global en iyi) ve `EvalAt(üye, hedef, açgözlü)` ile yapılır; formdaki Memory update bunlarda kullanılmaz.
 - Kaynak VB programlarındaki (SteelStruc klasörü) algoritmalar literatüre göre yeniden yazıldı; oradaki hatalar (DEGISIKLIKLER Aşama 15) taşınmadı.
+- **SSO** (`SocialSpider.vb`):
+  - Fortran kaynağından çevrildi. Çeviri kararları ve taşınmayan hatalar: `Ajan/Yetenekler/Optimizasyon_Yetenegi/SSO_CEVIRI_NOTLARI.md`.
+  - Çiftleşme ve sıçrama, döngünün son üyesinden (`Imem = Memory.Count - 1`) sonra çalışır.
+  - Kolonide zaten bulunan bir tasarım analiz edilmez; bir değişkeni bir kesit kaydırılır.
 - `GlobalBest` yalnızca **cezasız** çözümlerle güncellenir. O zamana kadar değişkenleri 0'dır ve `PenalizedCost = ∞` olur.
 - En iyi çözüme yönelen adımlar (Dandelion iniş aşaması, Levy uçuşu, Whale lideri) `OptimizationClass.Leader()` kullanır. Leader, uygun çözüm varsa `GlobalBest`'i, yoksa belleğin en iyisini döndürür. Doğrudan `GlobalBest.DesignVariables` kullanılmaz.
 

@@ -272,6 +272,7 @@ Public Class OptimizationStructure_
         GreyWolf = 12
         HoneyBadger = 13
         Aquila = 14
+        SocialSpider = 15
     End Enum
     Public Enum MemoryUpdateType_
         NoGreedyCurrent = 0
@@ -291,6 +292,7 @@ Public Class OptimizationStructure_
         Public CostValue As Double
         Public Penalty As Double
         Public PenalizedCost As Double
+        Public IsMale As Boolean            'SSO: male spider (female otherwise); not used by the other methods
     End Structure
     Public Structure History_
         Public Iter As Integer
@@ -341,4 +343,5 @@ Public Class AlgorithmState_
     Public Trials() As Integer                                      'ABC: trials without improvement per food source
     Public Pheromone()() As Double                                  'ACO: pheromone per variable and section
     Public Leaders As List(Of OptimizationStructure_.Member_)       'GWO: alpha, beta, delta
+    Public SpiderFemales As Integer                                 'SSO: number of female spiders
 End Class

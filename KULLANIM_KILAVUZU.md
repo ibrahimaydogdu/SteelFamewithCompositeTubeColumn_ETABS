@@ -1,15 +1,15 @@
 # KULLANIM KILAVUZU
 
-> **Geliştirme durumu (Aşama 2, 0.2.0):** Program şu an referans projenin (SteelFamewithCompositeColumn_ETABS 2026.10.3) davranışıyla aynı. Bu yüzden kompozit kolonlar gömülü kesitle (W profil + beton + donatı) çözülüyor.
+> **Geliştirme durumu (Aşama 3–4, 0.3.0):** Program şu an referans projenin (SteelFamewithCompositeColumn_ETABS 2026.10.3) davranışında; tek fark 16. yöntem olarak eklenen SSO. Bu yüzden kompozit kolonlar gömülü kesitle (W profil + beton + donatı) çözülüyor.
 > Bu projenin hedefleri sonraki aşamalarda eklenecek:
 > - dolgulu tüp kolonlar (çelik kutu / boru + beton);
 > - kolon grubu başına çelik/kompozit seçimi (hibrit tasarım);
-> - Sosyal Örümcek Algoritması;
+> - Sosyal Örümcek Algoritması (SSO, Aşama 3–4'te 16. yöntem olarak eklendi);
 > - isteğe bağlı kompozit döşeme.
 
 Kompozit kolonlu uzay çelik çerçevelerin metasezgisel yöntemlerle optimum tasarımı (ETABS 22; ETABS 19 ile de çalışır).
 
-Program sürümü: 0.2.0 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
+Program sürümü: 0.3.0 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
 
 ## İçindekiler
 1. [Programın yaptığı iş](#1-programın-yaptığı-iş)
@@ -278,7 +278,7 @@ Sol tarafta **General** ve **Evaluation** grupları, sağ tarafta **Method param
 **General**
 | Alan | Açıklama |
 |---|---|
-| *Method* | 15 yöntemden biri (bölüm 6) |
+| *Method* | 16 yöntemden biri (bölüm 6) |
 | *Memory / population size* | Bellek (popülasyon, koloni, sürü) büyüklüğü |
 | *Max. analyses* | En fazla ETABS analizi; arama bu sayıya ulaşınca biter |
 | *Memory Update* | Yeni tasarımın belleğe nasıl gireceği. Yalnızca HS, BBO, Whale ve Dandelion'da geçerlidir; diğer yöntemlerde soluk görünür (aşağıdaki tablo). |
@@ -337,6 +337,7 @@ Sol tarafta **General** ve **Evaluation** grupları, sağ tarafta **Method param
 | Grey Wolf (GWO) | Alfa, beta, delta kurtlarına göre hareket | Doğrudan (liderler saklanır) | 1 | başlangıç a 2 |
 | Honey Badger (HBA) | Kazma (kardioid) ve bal aşamaları | Açgözlü | 1 | β 6; C 2 |
 | Aquila (AO) | Yüksek süzülme, kontur uçuşu (Levy), alçak uçuş, yürüyerek yakalama | Açgözlü | 1 | α 0,1; δ 0,1 |
+| Social Spider (SSO) | Dişi ve erkek örümcekler titreşimlere göre hareket eder (en yakın daha iyi örümcek, en iyi örümcek, en yakın dişi); baskın erkekler yarıçap içindeki dişilerle çiftleşir | Seçime bağlı: *If better* (varsayılan) açgözlü, *Always* doğrudan; yavru en kötü örümceğin yerine geçer | ≈1,1 (sıçramayla ≈1,5'e kadar) | PF 0,7; çiftleşme yarıçapı 0,5 × aralık; kabul *If better*; sıçrama hayır |
 
 Açıklamalar:
 - **Kabul kuralları:**
@@ -344,7 +345,7 @@ Açıklamalar:
   - *Doğrudan*: her zaman yerine geçer. GWO'da bulunan en iyi üç tasarım (alfa, beta, delta) ayrıca saklanır; en iyi tasarım kaybolmaz.
   - *Arşivin en kötüsüyle*: ACO'da yeni tasarım, bellekteki en kötü tasarımla karşılaştırılır.
 - **Zamana bağlı katsayılar** (GWO `a`, GOA `c`, HBA yoğunluğu, BSO adımı, AO evreleri, Firefly α), yapılan analizin *Max. analyses* değerine oranıyla ilerler. *Max. analyses* değerini gerçekçi seçin: çok büyük bir değer, aramanın keşif aşamasında kalmasına yol açar.
-- **Yöntem durumu** (ABC deneme sayaçları, ACO feromonu, GWO liderleri) yedeğe yazılır; *Load BackUp* ile kaldığı yerden devam edilir.
+- **Yöntem durumu** (ABC deneme sayaçları, ACO feromonu, GWO liderleri, SSO dişi sayısı ve örümceklerin cinsiyeti) yedeğe yazılır; *Load BackUp* ile kaldığı yerden devam edilir.
 - **ABC terk sınırı:** varsayılan 0, "koloni × değişken" demektir (ör. 10 × 14 = 140 deneme). Kısa koşularda (birkaç yüz analiz) hiçbir kaynak bu sayıya ulaşmaz ve kâşif arı aşaması çalışmaz. Kısa koşularda 10–20 girin.
 - Bütün yöntemler aynı değerlendirme altyapısını kullanır: geometri düzeltmesi, kısıt onarımı, önbellek, yedek ve ETABS yeniden başlatma.
 
@@ -354,6 +355,10 @@ Açıklamalar:
 - **Çok değişkenli modellerde** (20+ grup): TLBO, ABC ve TSA, üye başına birden fazla tasarım denedikleri için genellikle daha kararlı ilerler. Analiz bütçesini de o oranda hızlı harcarlar.
 - **Hızlı yakınsama gereken kısa koşularda:** GWO, HBA ve AO, en iyi tasarıma güçlü biçimde yönelir; erken bir yerel optimuma takılma riski vardır.
 - Levy seçeneği büyük sıçramalarla çeşitlilik ekler. Arama erken durgunlaşıyorsa açmayı deneyin.
+- **SSO:**
+  - Koloninin %65–90'ı dişidir; oran koşunun başında rastgele seçilir ve yedekte saklanır.
+  - *Spider jump* (I. Aydoğdu'nun SSO_Column eki) çeşitliliği artırır, ama döngü başına analiz sayısını yaklaşık %40 artırır.
+  - *Always* seçeneği özgün SSO'dur (Cuevas vd. 2013). *If better* seçeneği, Fortran kodundaki `greedyselection = 1` seçeneğiyle aynıdır; pahalı ETABS analizlerinde önerilir.
 
 ### 6.3 Bellek, analiz sayısı ve süre
 - **Analiz süresi:** 525M modelinde (525 eleman, 14 grup) bir değerlendirme ortalama 13–25 s sürüyor. Bu süreye onarım, önbellek ve yeniden başlatmalar dahildir.
