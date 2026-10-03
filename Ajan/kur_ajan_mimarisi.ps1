@@ -22,7 +22,7 @@ Projenin çalışma mimarisi. Ajan (geliştirici yapay zekâ veya insan) işi ş
 |---|---|
 | `Yetenekler/Optimizasyon_Yetenegi` | Metasezgisel yöntemler (SSO dahil), ceza fonksiyonu, kesit havuzu, test problemleri |
 | `Yetenekler/ETABS_Kullanim_Yetenegi` | ETABS 22 OAPI kuralları, model kopyası, analiz/tasarım çağrıları, bilinen tuzaklar |
-| `Yetenekler/Sartname_Kullanim_Yetenegi` | AISC 360-22 (ve 360-16) gömülü kompozit kolon ve çelik eleman kuralları |
+| `Yetenekler/Sartname_Kullanim_Yetenegi` | AISC 360-22 (ve 360-16) dolgulu tüp (CFT/CFP) kompozit kolon ve çelik eleman kuralları |
 | `Hafiza` | Proje durumu, kararlar, referans değerler, ölçüm sonuçları |
 | `Gorevler` | Akış şeması ve adım adım görev kuyruğu |
 '@
@@ -41,7 +41,7 @@ Her alt klasör bir yetenektir. Her yetenek şunları içerir:
 Bu yetenek şunları kapsar:
 
 - **Yöntemler:** referans projedeki 15 metasezgisel yöntem (`OptimizationMethods.vb`, `MethodCatalog`) ve **Sosyal Örümcek Optimizasyonu (SSO)**. SSO, Fortran kaynağından aktarılacak.
-- **Tasarım değişkenleri:** grup başına kesit indisi. Kiriş grupları için W havuzu, kolon grupları için gömülü kompozit (I/H profil + beton + donatı) havuzu.
+- **Tasarım değişkenleri:** grup başına kesit indisi. Kiriş grupları için W havuzu. Kolon gruplarında hibrit seçim yapılır: W profil ya da dolgulu tüp (çelik kutu/boru + beton) havuzu.
 - **Amaç:** maliyet (çelik $/kg, beton $/m³, donatı, kalıp). Kısıtlar ceza fonksiyonuyla eklenir.
 - **ETABS'siz test:** dişli treni ve benzeri matematik problemleri (`TestWithMath`).
 
@@ -70,15 +70,15 @@ Bilinen tuzaklar (referans projede ölçülmüş):
 
 - E2K gidiş-dönüşü modeli kayıplı değiştiriyor; bu yüzden yalnızca EDB kullanılmalı.
 - Yeniden açılan modelde kombinasyon seçimi siliniyor; her tasarımdan önce kontrol edilmeli.
-- `eFramePropType` değerleri: I = 1, FilledTube = 29, **EncasedRectangle = 31**, EncasedCircle = 32.
+- `eFramePropType` değerleri: I = 1, Box = 6, Pipe = 7, **FilledTube = 29**, **FilledPipe = 30**, EncasedRectangle = 31. Dolgulu kesit için OAPI'de Set metodu yok; DatabaseTables yolu denenecek.
 '@
     'Yetenekler/Sartname_Kullanim_Yetenegi' = @'
 # Şartname Kullanım Yeteneği
 
 Bu yetenek şu kuralları kapsar:
 
-- **AISC 360-22 (ve 360-16):** gömülü kompozit kolonlar (Bölüm I: I1, I2.1, I5) ve çelik elemanlar (Bölüm D, E, F, G, H).
-- **Kesit kuralları:** gömülü I/H profil + beton + boyuna donatı. Kontrol edilenler: en az çelik oranı (%1), en az donatı oranı (%0,4), boyuna ve enine donatı, pas payı.
+- **AISC 360-22 (ve 360-16):** dolgulu kompozit kolonlar (Bölüm I: I1, I2.2, I5) ve çelik elemanlar (Bölüm D, E, F, G, H).
+- **Kesit kuralları (CFT/CFP):** kompakt/narin/çok narin sınıfı (Tablo I1.1a), en az çelik oranı (%1), beton dayanımı sınırları, çelik akma dayanımı sınırı.
 - **Dayanımlar:**
   - eksenel basınç (Pno, Pe, EIeff);
   - eğilme (plastik gerilme dağılımı veya şekil değiştirme uyumu);
@@ -87,8 +87,8 @@ Bu yetenek şu kuralları kapsar:
 
 Kaynaklar:
 
-- referans projedeki `AISC360_22_Composite_Column_Rules.md`, `AISC360_16_Composite_Column_Rules.md` ve `CompositeColumn.vb`;
-- Fortran: `Algoritmalar\fortran\SocialSpider\Composite_Design\SSO_Frame_Com\Source1.f90` (`encased_composite`).
+- referans projedeki `AISC360_22_Composite_Column_Rules.md`, `AISC360_16_Composite_Column_Rules.md` ve `CompositeColumn.vb` (gömülü kesit içindir; CFT/CFP için aynı yapıyla genişletilecek);
+- Fortran: `Algoritmalar\fortran\SocialSpider\Composite_Design\SSO_Frame_Com\Source1.f90` (`filled_composite`, `CompsiteAxialCapacity`).
 '@
     'Hafiza' = @'
 # Hafıza

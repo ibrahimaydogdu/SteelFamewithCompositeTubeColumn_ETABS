@@ -1,13 +1,11 @@
 # Kod İnceleme Raporu — Kompozit Kolonlu Çelik Çerçeve Optimizasyonu (SSO_CF / SFCS)
 
-> **Düzeltme (2026-10-03, Aşama 1):** Kullanıcı sistemi netleştirdi: kolonlar **beton dolgulu kutu (CFT) değil**. Kolonlar, etrafı donatılı betonla kaplı W (I/H) profillerden oluşan **gömülü kompozit** kesitler (ETABS'te `EncasedRectangle = 31`).
-> Bu nedenle aşağıdaki maddeler şöyle okunmalı:
-> - A1.1: doğru tür kodu `29` değil `31`.
-> - A1.7: dolgulu kutu API kısıtı yerine gömülü kesit kısıtı geçerli. Gömülü kesitte de OAPI setter yok; referans proje kesiti `DatabaseTables` ile yazıyor.
-> - Bölüm 6: aşama listesindeki CFT maddeleri geçersiz. Güncel plan için bkz. `Ajan/Gorevler/AKIS_SEMASI.md`.
->
-> Diğer bulgular (eski iskelet kodun hataları) aynen geçerli. Satır numaraları `SFCS` için bu depodaki `SSO_CF/CFCS.vb` dosyasıyla aynı.
-
+> **Not (Aşama 2, 2026-10-03):**
+> - Aşama 1'de buraya eklenen "kolonlar gömülü kesittir" düzeltmesi **geri alındı**. Kullanıcı hedefi netleştirdi: kompozit kolonlar **dolgulu tüp** olacak, yani çelik kutu (CFT, `FilledTube = 29`) veya boru (CFP, `FilledPipe = 30`) içinde beton. Bu yüzden raporun CFT'ye ilişkin bulguları (A1.1, A1.7) geçerli.
+> - Kolon grupları ayrı ayrı çelik veya kompozit seçilebilecek (hibrit tasarım). Kompozit döşeme isteğe bağlı.
+> - İncelenen iskelet kod (`CFCS.vb`, `Class1.vb`, `SSO_CF.vb`) kullanıcı kararıyla Aşama 2'de bu depodan **kaldırıldı**. Yerine referans projenin (SteelFamewithCompositeColumn_ETABS) test edilmiş kodu alındı.
+> - Rapor, kaldırılan kodun kaydı olarak duruyor. Satır numaraları orijinal `SFCS` ve `SSO_CF` klasörlerindeki dosyalara göre.
+> - Bölüm 6'daki yol haritasının yerini `Ajan/Gorevler/AKIS_SEMASI.md` aldı.
 
 - **Tarih:** 2026-10-03
 - **Kapsam:** Henüz kod değiştirilmedi. Bu rapor yalnızca okuma ve ölçümlere dayanıyor.

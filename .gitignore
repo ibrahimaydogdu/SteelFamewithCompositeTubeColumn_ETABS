@@ -14,11 +14,8 @@ ETABS*.dll
 ETABS*.tlb
 ETABS.exe
 
-# ETABS model ve analiz dosyaları (karar verilene kadar depoya girmez)
-*.EDB
+# ETABS analiz çıktıları ve yedekleri (modeller .EDB ve .$et olarak depoya girer)
 *.ebk
-*.$et
-*.e2k
 *.Y
 *.Y$$
 *.Y0*
@@ -29,10 +26,17 @@ ETABS.exe
 *.OUT
 *.WRN
 *.tlog
-SSO_CF/ETABS/**/*.ico
-SSO_CF/ETABS/**/*.xlsx
+Modeller/**/*.ico
+Modeller/**/*.xlsx
 
 # Çalışma çıktıları
 ErrorLog.txt
 BackUp.xml
+*_best.EDB
+*_best.$et
+*.result.xml
+*.backup.xml
+*.bak
+_cc/
+_pkg/
 dist/

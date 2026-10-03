@@ -1,43 +1,39 @@
 # Proje Durumu
 
-**Son güncelleme:** 2026-10-03, Aşama 1.
+**Son güncelleme:** 2026-10-03, Aşama 2.
 
 ## Kimlik
 
-- **Konu:** Çelik çerçevelerin optimizasyonu. Kolonlar **gömülü kompozit**: W (I/H) profil, etrafı betonla kaplı, boyuna donatı ve etriyeli. Kirişler W profili.
-- **Ortam:** ETABS 22.6 (`ETABSv1.dll`), VB.NET, .NET Framework 4.7.2 veya üstü, Visual Studio 2026.
-- **Klasör:** `...\MVS2010\ETABS\SteelFamewithCompositeTubeColumn_ETABS`. Başlangıç içeriği SFCS'den kopyalandı.
+- **Konu:** Çelik çerçevelerin optimizasyonu, **hibrit kompozit kolon** yaklaşımıyla. Kolon grupları ayrı ayrı çelik (W) veya **dolgulu tüp** seçilebilir; dolgulu tüp, çelik kutu (CFT) ya da boru (CFP) içine beton doldurularak elde edilir. Kirişler W profili. Kompozit döşeme isteğe bağlı.
+- **Ortam:** ETABS 22.6, VB.NET, .NET Framework 4.7.2, Visual Studio 2026.
+- **Klasör:** `...\MVS2010\ETABS\SteelFamewithCompositeTubeColumn_ETABS`.
 - **Depo:** github.com/ibrahimaydogdu/SteelFamewithCompositeTubeColumn_ETABS (main).
+- **Sürüm:** 0.2.0. Kod, referans projenin (2026.10.3) değiştirilmemiş kopyası.
 
-## Verilen kararlar
+## Verilen kararlar (2026-10-03)
 
-- **2026-10-03 (kullanıcı):**
-  - Ajan mimarisi kurulacak: Yetenekler, Hafıza, Görevler.
-  - Referans projenin kuralları, şartnameleri, akışı ve yöntemleri aktarılacak.
-  - Fortran SSO entegre edilecek.
-- **2026-10-03 (kullanıcı):** Proje klasörünün adı depo adıyla aynı olacak.
-- **2026-10-03:** Çalışma dizini olarak SFCS seçildi. SSO_CF yerine seçilme nedenleri:
-  - ETABSv1 API'si;
-  - .NET ve ETABS 22 uyumu;
-  - test modelleri ve kesit havuzları.
-  - Orijinal SFCS ve SSO_CF klasörleri yedek olarak olduğu gibi duruyor.
-- **2026-10-03:** Depoya girmeyecekler (referans projenin kuralıyla aynı):
-  - `AISC14M.xml` (CSI'ın dosyası; ETABS kurulumunda var);
-  - ETABS ikili dosyaları;
-  - model ve analiz dosyaları.
-  - Lisans ve EDB konusu kullanıcıya soruldu.
+| Konu | Karar |
+|---|---|
+| Çalışma dizini | SFCS kopyalanarak depo adıyla yeni klasör açıldı. SFCS ve SSO_CF orijinal haliyle duruyor. |
+| Kolon tipi | dolgulu tüp (CFT/CFP); gömülü kesit değil |
+| Kolon tipi seçimi | grup başına çelik veya kompozit (hibrit) |
+| Kompozit döşeme | isteğe bağlı, sonra ele alınacak |
+| Depo adındaki "Tube" | kolonların tüp olmasını anlatıyor (çekirdek perde değil); ad kalıyor |
+| Eski iskelet kod | kaldırıldı (Aşama 2) |
+| Lisans | ücretsiz → MIT |
+| ETABS dosyaları | depoya girer (`.EDB`, `.$et`); analiz çıktıları girmez |
+| Kök ad alanı ve exe adı | `FrameSap2000` olarak korundu; ayar ve yedek dosyalarıyla uyum için |
 
-## Bekleyen sorular
+## Referans ölçümler
 
-Bkz. `../Gorevler/AKIS_SEMASI.md`, Bölüm 4.
+Aşama 2'de ölçüldü. Ayrıntı için bkz. `DEGISIKLIKLER.md`.
+
+- MathTest (dişli treni problemi): 15 yöntem × Levy açık/kapalı × 3 tohum, 3000 değerlendirme. Referans ve yeni derlemenin çıktısı **birebir aynı**.
+- 525Member kopyası (kompozit mod, AISC 360-22, tohum 12345, 2 değerlendirme): sonuçlar 7121,40 / 2,0706 ve 7092,09 / 1,8054. Referans ve yeni derleme birebir aynı. Sonraki aşamalarda regresyon değeri olarak kullanılacak.
+- ETABS'in ilk açılışı ve 289 W kesitli ilk tasarım yaklaşık 520 s sürüyor. Bir değerlendirme 70–140 s.
 
 ## Önemli bilgiler
 
-- ETABS 22 `eFramePropType` değerleri:
-  - I = 1;
-  - BuiltupUHybrid = 27; eski kod kompozit kesitleri yanlışlıkla bu değerle arıyordu;
-  - FilledTube = 29;
-  - EncasedRectangle = 31.
-- Referans proje gömülü kesit ve donatıyı `DatabaseTables` ile yazıyor. Bunun nedeni OAPI'de bu iş için setter olmaması.
-- Referans projede kompozit tasarım sonuçları `Composite Column Summary` tablosundan okunuyor; `GetSummaryResults` ETABS 22.6'da kaymış veri döndürüyor.
-- Eski iskelet kodun inceleme bulguları kökteki `KOD_INCELEME_RAPORU.md` dosyasında.
+- ETABS 22 `eFramePropType` değerleri: I = 1, Box = 6, Pipe = 7, FilledTube = 29, FilledPipe = 30, EncasedRectangle = 31.
+- OAPI'de dolgulu kesit tanımlayan bir `Set` metodu yok (yalnızca `SetTube` var). Referans proje gömülü kesiti `DatabaseTables` ile yazıyor; dolgulu kesit için de aynı yol denenecek.
+- `DesignCompositeColumn` için ETABS 22 kodları: AISC 360-22, CSA S16-19/24, Eurocode 4-2004, IS 11384-2022. `GetSummaryResults` ETABS 22.6'da kaymış veri döndürüyor; sonuçlar tablodan okunmalı (referans PROGRAM_KURALLARI B5).

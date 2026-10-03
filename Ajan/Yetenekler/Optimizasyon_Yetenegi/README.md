@@ -3,7 +3,7 @@
 Bu yetenek şunları kapsar:
 
 - **Yöntemler:** referans projedeki 15 metasezgisel yöntem (`OptimizationMethods.vb`, `MethodCatalog`) ve **Sosyal Örümcek Optimizasyonu (SSO)**. SSO, Fortran kaynağından aktarılacak.
-- **Tasarım değişkenleri:** grup başına kesit indisi. Kiriş grupları için W havuzu, kolon grupları için gömülü kompozit (I/H profil + beton + donatı) havuzu.
+- **Tasarım değişkenleri:** grup başına kesit indisi. Kiriş grupları için W havuzu. Kolon gruplarında hibrit seçim yapılır: W profil ya da dolgulu tüp (çelik kutu/boru + beton) havuzu.
 - **Amaç:** maliyet (çelik $/kg, beton $/m³, donatı, kalıp). Kısıtlar ceza fonksiyonuyla eklenir.
 - **ETABS'siz test:** dişli treni ve benzeri matematik problemleri (`TestWithMath`).
 

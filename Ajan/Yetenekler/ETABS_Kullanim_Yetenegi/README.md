@@ -14,4 +14,4 @@ Bilinen tuzaklar (referans projede ölçülmüş):
 
 - E2K gidiş-dönüşü modeli kayıplı değiştiriyor; bu yüzden yalnızca EDB kullanılmalı.
 - Yeniden açılan modelde kombinasyon seçimi siliniyor; her tasarımdan önce kontrol edilmeli.
-- `eFramePropType` değerleri: I = 1, FilledTube = 29, **EncasedRectangle = 31**, EncasedCircle = 32.
+- `eFramePropType` değerleri: I = 1, Box = 6, Pipe = 7, **FilledTube = 29**, **FilledPipe = 30**, EncasedRectangle = 31. Dolgulu kesit için OAPI'de Set metodu yok; DatabaseTables yolu denenecek.

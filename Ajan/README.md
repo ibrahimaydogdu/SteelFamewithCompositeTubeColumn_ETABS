@@ -11,6 +11,6 @@ Projenin çalışma mimarisi. Ajan (geliştirici yapay zekâ veya insan) işi ş
 |---|---|
 | `Yetenekler/Optimizasyon_Yetenegi` | Metasezgisel yöntemler (SSO dahil), ceza fonksiyonu, kesit havuzu, test problemleri |
 | `Yetenekler/ETABS_Kullanim_Yetenegi` | ETABS 22 OAPI kuralları, model kopyası, analiz/tasarım çağrıları, bilinen tuzaklar |
-| `Yetenekler/Sartname_Kullanim_Yetenegi` | AISC 360-22 (ve 360-16) gömülü kompozit kolon ve çelik eleman kuralları |
+| `Yetenekler/Sartname_Kullanim_Yetenegi` | AISC 360-22 (ve 360-16) dolgulu tüp (CFT/CFP) kompozit kolon ve çelik eleman kuralları |
 | `Hafiza` | Proje durumu, kararlar, referans değerler, ölçüm sonuçları |
 | `Gorevler` | Akış şeması ve adım adım görev kuyruğu |
