@@ -1,6 +1,6 @@
 # KULLANIM KILAVUZU
 
-> **Geliştirme durumu (Aşama 5, 0.4.0):** Referans projeye (SteelFamewithCompositeColumn_ETABS 2026.10.3) göre farklar:
+> **Geliştirme durumu (Aşama 5.1, 0.4.1):** Referans projeye (SteelFamewithCompositeColumn_ETABS 2026.10.3) göre farklar:
 > - 16. yöntem olarak eklenen SSO;
 > - kompozit kolon tipi olarak **dolgulu tüp** (bölüm 7.5).
 >
@@ -12,7 +12,7 @@
 
 Kompozit kolonlu uzay çelik çerçevelerin metasezgisel yöntemlerle optimum tasarımı (ETABS 22; ETABS 19 ile de çalışır).
 
-Program sürümü: 0.4.0 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
+Program sürümü: 0.4.1 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
 
 ## İçindekiler
 1. [Programın yaptığı iş](#1-programın-yaptığı-iş)
@@ -122,6 +122,7 @@ Ayar dosyası Not Defteri ile açılıp düzenlenebilir. Yalnızca `value="…"`
 | `ServiceLateralFactor` | 1,0 | Programın oluşturduğu `SRV_<desen>` servis durumlarının yük katsayısı. Örneğin ASCE 7 servis rüzgârı için 0,6–0,7. |
 | `SeismicDriftAmplification` | 1,0 | Servis öteleme modunda deprem durumlarının yerdeğiştirme büyütmesi. ASCE 7: Cd/Ie, TBDY 2018: R/I. |
 | `CompositeStrengthFactor` | 1,0 | İç kompozit dayanım oranlarının çarpanı. Final ETABS kontrolünün önerdiği değer girilebilir (bkz. 7.4). |
+| `DesignRatioLimit` | boş | Çelik ve kompozit kolon tasarımının **D/C oranı sınırı** (bkz. 7.6). Boşsa modelin ETABS tasarım tercihlerindeki değer kullanılır (ETABS varsayılanı 0,95). Bir sayı girilirse (örneğin AISC 360 için 1,0) bu değer çalışma kopyasının tercihlerine yazılır. |
 
 Örnek: ETABS `D:\CSI\ETABS 22` klasörüne kurulduysa:
 ```xml
@@ -481,6 +482,25 @@ Formda *Composite columns* + *Filled tube* seçildiğinde kolon gruplarının ta
 **Arama sınırları:**
 - Alt sınır kataloğun en küçük kesitidir.
 - Üst sınır, ilk tasarımdaki W kesitinin Fy·As değerine en az eşit Pno'ya sahip ilk tüpten başlar; referanstaki gibi kayma payı eklenir.
+
+**Deprem şartnamesi** (`SeismicDuctility`, varsayılan `High`): TBDY 2018 Tablo 9.3'ün "Kompozit Elemanlar" satırları uygulanır (AISC 341-10 Tablo D1.1 ile aynı).
+
+| Düzey | Kutu cidarı b/t | Boru cidarı D/t | Varsayılan katalog (Fy = 345 MPa) |
+|---|---|---|---|
+| `High` (yüksek süneklik, λhd) | ≤ 1,4 √(E/Fy) = 33,7 | ≤ 0,076 E/Fy = 44,1 | 100 kesit (27 HSS + 73 yapma) |
+| `Moderate` (sınırlı süneklik, λmd) | ≤ 2,26 √(E/Fy) = 54,4 | ≤ 0,15 E/Fy = 87,0 | 132 kesit |
+| `None` (yalnızca AISC 360 λmax) | ≤ 5,0 √(E/Fy) | ≤ 0,31 E/Fy | 149 kesit |
+
+- **b:** kütüphanedeki HSS kutularda B − 3t (köşe yarıçapı), yapma kutularda B − 2t.
+- **Uygulanan değerler:** yüksek süneklikte 600 mm yapma kutu için levha en az 20 mm, 1000 mm için en az 30 mm.
+- **Hangi düzey:** taşıyıcı sistemin süneklik düzeyi (moment çerçevesi, DTS) seçilen düzeyi belirler; kullanıcı bunu ayardan seçer.
+- **Kapsam:** program yalnızca bu enkesit koşulunu uygular. AISC 341 / TBDY'nin diğer deprem koşulları (güçlü kolon–zayıf kiriş, bağlantı vb.) kontrol edilmez. ETABS'in kompozit kolon tasarımı da AISC 341'i kontrol etmez.
+
+### 7.6 D/C oranı sınırı (ETABS ile tutarlılık)
+- ETABS çelik çerçeve ve kompozit kolon tasarımında talep/kapasite oranını 1,0 ile değil, tasarım tercihlerindeki **D/C ratio limit** değeriyle karşılaştırır. Varsayılan 0,95'tir; *Design > ... Design Preferences* menüsünden değiştirilebilir.
+- Program sınırı modelden okur (ya da ayar dosyasındaki `DesignRatioLimit` değerini modele yazar) ve bütün tasarım oranlarını bu sınıra böler. Programın raporladığı "oran" bu yüzden **oran / sınır** değeridir; 1 sınırdır.
+- Böylece programın uygun bulduğu tasarım ETABS'te de uygun görünür. Sürüm 0.4.0'a kadar program 1,0 kullanıyordu: oranı 0,95–1,0 arasında kalan elemanlar ETABS'te "Combined D/C ratio exceeded" / aşırı gerilme olarak görünüyordu.
+- Günlükte `Info: D/C ratio limits (...)` satırı kullanılan değerleri gösterir.
 
 ## 8. Koşuyu izleme, durdurma ve devam ettirme
 

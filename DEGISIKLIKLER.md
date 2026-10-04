@@ -4,6 +4,83 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
+## 2026-10-04 — Aşama 5.1: D/C oranı sınırı (ETABS ile tutarlılık) ve deprem şartnamesi süneklik süzgeci
+
+**1. D/C oranı sınırı (kullanıcı: "1. notu incele, ciddi sorun")**
+- **Bulgu:** Aşama 5 testinde grup 6 için ETABS "Combined D/C ratio exceeded" mesajı verdi, oysa PMM oranı 0,969'du.
+  - ETABS'in AISC 360-22 kompozit kolon ve çelik çerçeve el kitaplarına göre ETABS oranı 1,0 ile değil, tasarım tercihlerindeki **D/C ratio limit** (varsayılan 0,95) ile karşılaştırıyor.
+  - Grup 6'nın beş kolonunda yalnızca 0,969 işaretlendi; 0,858 işaretlenmedi.
+  - Sınır kopyada 0,45 yapıldığında 0,455–0,52'lik çelik elemanlar için `DesignSteel.GetSummaryResults` hata ve uyarı alanlarını **boş** döndürdü. Program sınır aşımını göremiyordu.
+  - Modellerde `SRLIMIT 0.95`.
+  - Sonuç: program (referanstan beri) oranı 0,95–1,0 arasındaki çelik ve kompozit elemanları uygun sayıyordu; ETABS'te bu elemanlar yetersiz görünüyordu.
+- **Düzeltme** (kullanıcı onayı: sınır modelden):
+  - `InitializeRatioLimits` / `RatioLimit`, sınırları `Steel Frame Design Preferences - <kod>` ve `Composite Column Design Preferences - <kod>` tablolarının `DCLimit` alanından okuyor. Alan AISC 360-22, 360-16 ve 360-10'da aynı.
+  - App.config `DesignRatioLimit`: boş = modeldeki sınır; sayı = çalışma kopyasına yazılır. ETABS yeniden başlatılınca tekrar yazılır.
+  - Çelik grubunun oranı = ETABS oranı / çelik sınırı.
+  - Kompozit grubun oranı = max(detay oranı, dayanım / kompozit sınırı). `CompositeStrength` ham kalır; kalibrasyonda kullanılıyor.
+  - ETABS doğrulama oranları (`ETABSRatioByVar`, koruma döngüsü, uyarılar) = oran / sınır.
+  - Günlük: `Info: D/C ratio limits (...)` satırı ve ETABS kontrol satırlarında "(D/C limit 0.95)".
+- **API bilgileri:**
+  - `DesignSteel.AISC360_22.GetPreference(37)` ve `DesignCompositeColumn.AISC360_22.GetPreference(18)` da aynı değeri veriyor. Kod tablolardan okuduğu için çelik koduna bağlı değil.
+  - Tablo yazımı tercihlerde yalnızca `DCLimit` değerini değiştiriyor (yazmadan önce ve sonra alan alan karşılaştırıldı).
+
+**2. Deprem şartnamesi süneklik süzgeci (kullanıcı isteği)**
+- **Kaynak:** kullanıcının paylaştığı TBDY 2018 Tablo 9.3, "Kompozit Elemanlar" satırları (AISC 341-10 Tablo D1.1 ile aynı):
+
+  | Düzey | Kutu cidarı b/t | Boru cidarı D/t |
+  |---|---|---|
+  | Yüksek (λhd) | 1,4 √(E/Fy) | 0,076 E/Fy |
+  | Sınırlı (λmd) | 2,26 √(E/Fy) | 0,15 E/Fy |
+
+  AISC 341-16 bağlantısının (Scribd) içeriği okunamadı.
+- **Kod:**
+  - `TubeSettings_.SeismicDuctility` (None / Moderate / High; kullanıcı kararıyla varsayılan **High**);
+  - `SeismicLimit`, `SeismicSlenderness` (b: kütüphanedeki HSS'te B − 3t, yapma kutuda B − 2t);
+  - katalog süzgeci ve günlük satırı;
+  - `TubeSections.xml` ayarı.
+- **Sonuç** (Fy = 345 MPa):
+  - katalog yüksek sünekliğe göre 100 kesit (27 HSS + 73 yapma), sınırlı sünekliğe göre 132, süzgeç yokken 149;
+  - örnek: yüksek süneklikte 600 mm yapma kutuda levha en az 20 mm, 1000 mm'de en az 30 mm.
+
+Sürüm 0.4.1. Belgeler:
+- kılavuz: 2.4 (`DesignRatioLimit`), 7.5 deprem tablosu, yeni 7.6;
+- kurallar: A6;
+- `README.md`.
+
+**Testler**
+
+| Test | Sonuç |
+|---|---|
+| vbc ve MSBuild `Rebuild` | 0 hata, 0 uyarı; exe 0.4.1.0 |
+| MathTest | Aşama 3–4 ile birebir aynı |
+| TubeTest (31 kontrol) | hepsi geçti. Yüksek: 100 kesit, hepsi b/t ≤ 33,7; BU1000X1000X25 (b/t = 38) atıldı, BU1000X1000X30 (31,3) kaldı. Sınırlı: 132. Süzgeçsiz: 149. Yüksek düzeyde borular D/t ≤ 44,1 (57 boru). XML varsayılanı High. |
+| **525M, gömülü mod, sınır modelden** (ETABS 22.6, tohum 12345) | sınırlar 0,95 / 0,95 okundu. **Yeni regresyon değerleri:** 7564,91 / 1,4580 ve 7068,84 / 1,8032; önbellek tekrarı aynı. Oranlar 0,95'e göre ölçekleniyor (ör. 0,805 / 0,95 = 0,847). |
+| **525M, tüp modu uçtan uca** (SSO, 4 örümcek, 12 analiz, final) | ayrıntılar aşağıda |
+| `DesignRatioLimit = 1.0` | sınır her iki tercih tablosuna yazıldı ve geri okundu (1 / 1). Sonuç: 7348,43 / 1,8238 ve 6886,35 / 2,4916. Eski referanstan (7121,40 / 2,0706) farkının nedeni aşağıda. |
+
+Tüp modu uçtan uca testinin ayrıntıları:
+- katalog 100 kesit, sınırlar 0,95;
+- 10 kolon grubunda ETABS / iç hesap PMM oranları:
+
+  | Grup | ETABS | İç hesap |
+  |---|---|---|
+  | 5 | 0,788 | 0,790 |
+  | 6 | 0,777 | 0,780 |
+  | 9 | 0,678 | 0,684 |
+  | 14 | 0,171 | 0,172 |
+
+  Fark %1'in altında ve iç hesap her grupta biraz daha güvenli tarafta; kalibrasyon uyarısı yok.
+- Hiçbir kolonda "Combined D/C ratio exceeded" mesajı yok.
+- Kısa koşuda final cezası 0,5565; bu ceza öteleme kısıtından geliyor, bu bir optimizasyon sonucu değil.
+
+`DesignRatioLimit = 1.0` testindeki farkın nedeni:
+- Başlangıç sınırları (Ub/Lb) ETABS'in otomatik kesit seçimiyle bulunuyor ve ETABS bu seçimde de D/C sınırını kullanıyor.
+- Sınır 1,0 olunca ETABS daha hafif kesitler seçiyor (ör. grup 5: W760X314 → W360X314; grup 8: W760X284 → W690X265); üst sınırlar değişiyor (ör. grup 7: 240 → 231).
+- Bu, ayrı bir çalıştırmayla doğrulandı.
+- Eski referans "ETABS 0,95, program 1,0" karışımından geliyordu; tek ve tutarlı bir ayarla yeniden üretilemez. Bundan sonra regresyon değeri olarak 7564,91 / 1,4580 kullanılacak.
+
+---
+
 ## 2026-10-03 — Aşama 5: Dolgulu tüp (CFT/CFP) kompozit kolonlar
 
 **Kullanıcı kararları** (inceleme ve öneri: `Ajan/Gorevler/ASAMA5_ONERI.md`)

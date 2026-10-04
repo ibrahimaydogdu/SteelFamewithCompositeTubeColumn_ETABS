@@ -1,6 +1,6 @@
 # Proje Durumu
 
-**Son güncelleme:** 2026-10-03, Aşama 5 (dolgulu tüp kolonlar, 0.4.0).
+**Son güncelleme:** 2026-10-04, Aşama 5.1 (D/C sınırı, deprem süzgeci, 0.4.1).
 
 ## Kimlik
 
@@ -21,6 +21,8 @@
 | SSO | Fortran'dan çevrildi, 16. yöntem (Aşama 3–4) |
 | Tüp kataloğu (Aşama 5) | kütüphanedeki kare HSS (≥ 300 mm) + yapma kare kutular 400–1000 mm; boru ve dikdörtgen kutu kapalı; beton modelden |
 | Gömülü kesit | seçenek olarak kalıyor; tek program, formda tip seçimi |
+| D/C oranı sınırı (Aşama 5.1) | modelin ETABS tercihinden (`DCLimit`, 0,95); oranlar sınıra bölünür. `DesignRatioLimit` ile sabitlenebilir. |
+| Deprem süzgeci (Aşama 5.1) | TBDY 2018 Tablo 9.3 kompozit satırları; varsayılan yüksek süneklik (katalog 100 kesit) |
 | Kompozit döşeme | isteğe bağlı, sonra ele alınacak |
 | Depo adındaki "Tube" | kolonların tüp olmasını anlatıyor (çekirdek perde değil); ad kalıyor |
 | Eski iskelet kod | kaldırıldı (Aşama 2) |
@@ -34,7 +36,7 @@ Aşama 2'de ölçüldü. Ayrıntı için bkz. `DEGISIKLIKLER.md`.
 
 - MathTest (dişli treni problemi): 15 yöntem × Levy açık/kapalı × 3 tohum, 3000 değerlendirme. Referans ve yeni derlemenin çıktısı **birebir aynı**.
 - Tüp modu (Aşama 5, 525M kopyası): ETABS / iç hesap PMM oranı en fazla 1,041. Finalde ETABS kompozit tasarımı 225 kolon için 849 s.
-- 525Member kopyası (kompozit mod, AISC 360-22, tohum 12345, 2 değerlendirme): sonuçlar 7121,40 / 2,0706 ve 7092,09 / 1,8054. Referans ve yeni derleme birebir aynı. Sonraki aşamalarda regresyon değeri olarak kullanılacak.
+- 525Member kopyası (gömülü mod, AISC 360-22, tohum 12345, 2 değerlendirme): Aşama 5.1'den beri **7564,91 / 1,4580 ve 7068,84 / 1,8032** (D/C sınırı 0,95). Aşama 2–5'teki 7121,40 / 2,0706 değeri eski 1,0 sınırına aitti.
 - ETABS'in ilk açılışı ve 289 W kesitli ilk tasarım yaklaşık 520 s sürüyor. Bir değerlendirme 70–140 s.
 
 ## Önemli bilgiler

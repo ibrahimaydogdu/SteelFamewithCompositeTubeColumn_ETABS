@@ -32,7 +32,15 @@
   - TubeTest 23/23;
   - MathTest ve gömülü mod regresyonu birebir aynı;
   - tüp modu uçtan uca: ETABS / iç hesap ≤ 1,041.
-- [ ] (?) İsteğe bağlı: AISC 341 süneklik süzgeci; grup 6'daki "Combined D/C ratio exceeded" mesajının incelenmesi.
+- [x] Grup 6 mesajı incelendi (2026-10-04). Neden: ETABS çelik ve kompozit tasarımında D/C oranını 1,0 ile değil **"D/C ratio limit"** ile karşılaştırıyor (modellerde 0,95). Program ise 1,0 kullanıyor; 0,95–1,0 arasındaki elemanları uygun sayıyor.
+  - Kanıt: grup 6'nın beş kolonunda yalnızca PMM 0,969 olan işaretlendi, 0,858 işaretlenmedi.
+  - API sınır aşımını göstermiyor: sınır 0,45 yapıldığında 0,52'lik elemanların hata ve uyarı alanları boş geldi.
+  - Tercih numaraları: `DesignSteel.AISC360_22.GetPreference(37)` ve `DesignCompositeColumn.AISC360_22.GetPreference(18)`, ikisi de 0,95.
+  - Sorun referanstan devralındı ve çelik elemanları da etkiliyor.
+- [x] Aşama 5.1 (2026-10-04, 0.4.1):
+  - D/C sınırı modelden okunuyor (`DCLimit`) ve oranlar sınıra bölünüyor;
+  - TBDY 2018 Tablo 9.3 süneklik süzgeci eklendi (varsayılan yüksek).
+  - Yeni 525M regresyon değerleri: 7564,91 / 1,4580 ve 7068,84 / 1,8032.
 
 ## Aşama 6 — Hibrit tasarım
 - [x] Karar: hem kullanıcı hem optimizasyon değişkeni; "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu.

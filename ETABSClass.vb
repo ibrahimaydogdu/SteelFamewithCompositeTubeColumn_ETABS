@@ -202,6 +202,8 @@ Public Class ETABS_Class
             SapModel.DesignSteel.GetCode(CodeName)
             Errorlogprint("Info: steel design code " & CodeName)
         End If
+        ret = InitializeRatioLimits()
+        If (ret <> 0) Then : Errorlogprint("Problem occurred on Function: InitializeRatioLimits") : Return ret : End If
         '_____________________________________________________
         'Upper Lower boundary Def
         If FormInfo.CheckStructure = False Then
@@ -235,6 +237,14 @@ Public Class ETABS_Class
     'Internal composite strength ratios are multiplied by this factor (App.config CompositeStrengthFactor, default 1.0).
     'The final ETABS check logs the factor that would make the internal check match ETABS.
     Private ReadOnly CompositeStrengthFactor As Double = ReadNumber("CompositeStrengthFactor", 1.0)
+
+    'D/C ratio limits of the ETABS designs (preference "DCLimit", ETABS default 0.95): ETABS compares the D/C ratios with
+    'them, not with 1. The design ratios of the program are divided by the limits (1 = at the limit), so a design
+    'accepted by the program is accepted by ETABS too. App.config DesignRatioLimit > 0 writes that value to the steel and
+    'composite column preferences of the working copy (e.g. 1.0 = AISC 360); empty: the limits of the model are used.
+    Private ReadOnly FixedRatioLimit As Double = ReadNumber("DesignRatioLimit", 0)
+    Public SteelRatioLimit As Double = 1.0
+    Public CompositeRatioLimit As Double = 1.0
 
     'Copies the input model to <WorkFolder or %TEMP%>\SteelFrameOpt\<model>_<time>\<model>.EDB
     Private Function CreateWorkCopy(ByVal SourceFile As String) As Integer
@@ -513,6 +523,70 @@ Public Class ETABS_Class
             ret = SapModel.Analyze.SetRunCaseFlag(c, False)
             If (ret <> 0) Then : Errorlogprint("Problem occurred on :Analyze.SetRunCaseFlag " & c & " (restart)") : Return ret : End If
         Next
+        If FixedRatioLimit > 0 Then
+            ret = InitializeRatioLimits()
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :InitializeRatioLimits (restart)") : Return ret : End If
+        End If
+        Return 0
+    End Function
+
+    'D/C ratio limits of the steel and composite column design preferences (see FixedRatioLimit)
+    Private Function InitializeRatioLimits() As Integer
+        Dim ret As Integer
+        If SteelFrameDesignGroupIDs.Count > 0 Then
+            Dim Code As String = Nothing
+            SapModel.DesignSteel.GetCode(Code)
+            ret = RatioLimit("Steel Frame Design Preferences - " & Code, SteelRatioLimit)
+            If ret <> 0 Then Return ret
+        End If
+        If FormInfo.CompositeColumns Then
+            Dim CodeName As String = CompositeCodeName(FormInfo.CompositeCode)
+            ret = SapModel.DesignCompositeColumn.SetCode(CodeName)
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :DesignCompositeColumn.SetCode " & CodeName) : Return ret : End If
+            ret = RatioLimit("Composite Column Design Preferences - " & CodeName, CompositeRatioLimit)
+            If ret <> 0 Then Return ret
+        End If
+        Dim F = Function(x As Double) x.ToString("0.###", CultureInfo.InvariantCulture)
+        Errorlogprint("Info: D/C ratio limits (" & If(FixedRatioLimit > 0, "DesignRatioLimit of the settings file, written to the model", "design preferences of the model") &
+                      "): steel " & F(SteelRatioLimit) & If(FormInfo.CompositeColumns, ", composite column " & F(CompositeRatioLimit), "") & "; design ratios are divided by them")
+        Return 0
+    End Function
+
+    'Reads the "DCLimit" field of a design preferences table (writes FixedRatioLimit first when it is set)
+    Private Function RatioLimit(ByVal Key As String, ByRef Limit As Double) As Integer
+        Dim Version, N As Integer, Fields() As String = Nothing, Data() As String = Nothing
+        Dim ret As Integer = SapModel.DatabaseTables.GetTableForEditingArray(Key, "", Version, Fields, N, Data)
+        Dim iL As Integer = If(Fields Is Nothing, -1, Array.IndexOf(Fields, "DCLimit"))
+        If ret <> 0 OrElse N < 1 OrElse iL < 0 Then
+            Errorlogprint("Warning: D/C ratio limit (DCLimit) not found in '" & Key & "'; 1.0 used")
+            Limit = 1.0
+            Return 0
+        End If
+        Dim x As Double
+        If Not Double.TryParse(Data(iL), NumberStyles.Float, CultureInfo.InvariantCulture, x) OrElse x <= 0 Then x = 1.0
+        If FixedRatioLimit > 0 AndAlso Math.Abs(x - FixedRatioLimit) > 0.0000001 Then
+            'table edits are ignored (without an error) while the model is locked
+            If SapModel.GetModelIsLocked() Then
+                ret = SapModel.SetModelIsLocked(False)
+                If (ret <> 0) Then : Errorlogprint("Problem occurred on :Unlock model") : Return ret : End If
+            End If
+            Data(iL) = FixedRatioLimit.ToString("R", CultureInfo.InvariantCulture)
+            ret = SapModel.DatabaseTables.SetTableForEditingArray(Key, Version, Fields, N, Data)
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on :DatabaseTables.SetTableForEditingArray " & Key) : Return ret : End If
+            Dim NFatal, NErr, NWarn, NInfo As Integer, ImportLog As String = Nothing
+            ret = SapModel.DatabaseTables.ApplyEditedTables(True, NFatal, NErr, NWarn, NInfo, ImportLog)
+            If ret <> 0 OrElse NFatal + NErr > 0 Then
+                Errorlogprint("Problem occurred on :DatabaseTables.ApplyEditedTables (" & Key & ")" & Environment.NewLine & ImportLog)
+                Return If(ret <> 0, ret, -1)
+            End If
+            InvalidateAnalysis()
+            ret = SapModel.DatabaseTables.GetTableForEditingArray(Key, "", Version, Fields, N, Data)
+            If ret <> 0 OrElse Not Double.TryParse(Data(iL), NumberStyles.Float, CultureInfo.InvariantCulture, x) OrElse Math.Abs(x - FixedRatioLimit) > 0.0000001 Then
+                Errorlogprint("D/C ratio limit could not be written to '" & Key & "'")
+                Return -1
+            End If
+        End If
+        Limit = x
         Return 0
     End Function
 
@@ -1683,7 +1757,7 @@ Public Class ETABS_Class
         L.Add("inter-story drift / limit: " & F3(Inter))
         L.Add("top drift / limit: " & F3(Math.Max(TopDriftX, TopDriftY) / TopDriftLimit))
         Dim SteelIDs = SteelFrameDesignGroupIDs.Where(Function(id) Not Groups(id).IsComposite).ToList()
-        If SteelIDs.Count > 0 Then L.Add("steel design ratio (max): " & F3(SteelIDs.Max(Function(id) Groups(id).PMMRatio)))
+        If SteelIDs.Count > 0 Then L.Add("steel design ratio / D/C limit " & SteelRatioLimit.ToString("0.###", CultureInfo.InvariantCulture) & " (max): " & F3(SteelIDs.Max(Function(id) Groups(id).PMMRatio)))
         Dim CompIDs = SteelFrameDesignGroupIDs.Where(Function(id) Groups(id).IsComposite).ToList()
         If CompIDs.Count > 0 Then
             L.Add("composite strength ratio (max): " & F3(CompIDs.Max(Function(id) Groups(id).CompositeStrength)))
@@ -1949,7 +2023,7 @@ Public Class ETABS_Class
                     AnalysisFailed = True
                     Return 0
                 End If
-                Groups(ID).PMMRatio = Items.Max(Function(j) Ratio(j))
+                Groups(ID).PMMRatio = Items.Max(Function(j) Ratio(j)) / SteelRatioLimit      'ETABS D/C ratio limit
                 Dim ErrorCount As Integer = Items.Where(Function(j) Not String.IsNullOrEmpty(ErrorSummary(j))).Count()
                 If ErrorCount > 0 Then Groups(ID).PMMRatio += 1 + ErrorCount / Items.Count
 
@@ -2024,7 +2098,7 @@ Public Class ETABS_Class
                 Strength = Math.Max(Strength, r)
             Next
             Strength *= CompositeStrengthFactor
-            Dim GroupRatio As Double = Math.Max(Detailing, Strength)
+            Dim GroupRatio As Double = Math.Max(Detailing, Strength / CompositeRatioLimit)     'ETABS D/C ratio limit
             Groups(ID).CompositeStrength = Strength
             Groups(ID).CompositeDetailing = Detailing
             Groups(ID).PMMRatio = GroupRatio
@@ -2672,12 +2746,14 @@ Public Class ETABS_Class
                 Continue For
             End If
             Dim Line As String = G & ": ETABS PMM " & PMM(G).ToString("F3", CultureInfo.InvariantCulture) & ", shear " & Shear(G).ToString("F3", CultureInfo.InvariantCulture) &
+                                 " (D/C limit " & CompositeRatioLimit.ToString("0.###", CultureInfo.InvariantCulture) & ")" &
                                  " | internal strength " & Groups(ID).CompositeStrength.ToString("F3", CultureInfo.InvariantCulture) &
                                  ", detailing " & Groups(ID).CompositeDetailing.ToString("F3", CultureInfo.InvariantCulture) &
                                  If(Messages(G).Count > 0, " | " & String.Join("; ", Messages(G)), "")
             ETABS_print.ETABSCompositeCheck.Add(Line)
-            ETABS_print.ETABSCompositeRatios.Add(Math.Max(PMM(G), Shear(G)))
-            ETABSRatioByVar(v) = Math.Max(PMM(G), Shear(G))
+            'relative to the D/C ratio limit: > 1 = failed in ETABS (guard, warnings)
+            ETABS_print.ETABSCompositeRatios.Add(Math.Max(PMM(G), Shear(G)) / CompositeRatioLimit)
+            ETABSRatioByVar(v) = Math.Max(PMM(G), Shear(G)) / CompositeRatioLimit
             'internal strength without the factor; small ratios are dominated by rounding of the ETABS table
             Dim Internal As Double = Groups(ID).CompositeStrength / CompositeStrengthFactor
             If Internal >= CALIBRATION_MIN_RATIO Then Calibration = Math.Max(Calibration, Math.Max(PMM(G), Shear(G)) / Internal)
@@ -2736,7 +2812,7 @@ Public Class ETABS_Print
     Public Cost As Double
     Public AnalysisFailed As Boolean
     Public GroupNames As New List(Of String)            'design variable groups, order of PMM_Ratios
-    Public PMM_Ratios As New List(Of Double)            'design ratio per group (composite: max(strength, detailing))
+    Public PMM_Ratios As New List(Of Double)            'design ratio / D/C limit per group (composite: max(strength / limit, detailing))
     Public InterStoryDrifts As New List(Of List(Of Double))     'per story {X, Y} [mm]
     Public TopStoryDrifts As New List(Of Double)                '{X, Y} [mm]
     Public BeamToColumnGeometricRatio As New List(Of Double)

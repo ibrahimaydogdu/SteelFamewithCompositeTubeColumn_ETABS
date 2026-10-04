@@ -40,7 +40,7 @@ Diğer belgeler:
   - dolgulu tüp kolonlar (Aşama 5; `TubeColumn.vb`, `TubeSections.xml`). Kurallar A5'te.
 - Kök ad alanı ve exe adı `FrameSap2000` olarak korundu, böylece ayar ve yedek dosyaları uyumlu kalıyor.
 - Değişenler yalnızca şunlar:
-  - ürün adı ve sürüm (0.4.0);
+  - ürün adı ve sürüm (0.4.1);
   - pencere başlığı;
   - proje/çözüm adları ve GUID'leri.
 - Aşağıdaki B bölümü referansın kurallarıdır ve koda birebir uyar. CFT/CFP ve hibrit tasarım eklendikçe B bölümü güncellenecek. Şimdilik "kompozit" dendiğinde gömülü kesit kastediliyor.
@@ -63,6 +63,20 @@ Diğer belgeler:
 - **Maliyet:** `TubeSettings.SteelUnitCost` × çelik [kN] + `ConcreteUnitCost` × beton [m³]. Formun *Steel* ve *Concrete* değerleri bunların yerine geçer.
 - **Ub:** ilk tasarımdaki W kesitinin Fy·A değerine en az eşit Pno'lu ilk tüp + referanstaki kayma (`BOUND_SHIFT_MULTIPLIER`, `UPPER_BOUND_MULTIPLIER`); Lb = 0.
 - **Değişmezlik:** W kesitli değişkenlerde (çelik ve gömülü mod) hesap referansla aynıdır. Bu, MathTest ve 525M gömülü mod regresyon testiyle doğrulanır.
+
+### A6. D/C oranı sınırı ve deprem süzgeci (Aşama 5.1)
+- **D/C oranı sınırı:**
+  - ETABS, çelik ve kompozit kolon tasarımında oranı tercihlerdeki `DCLimit` ile karşılaştırır (varsayılan 0,95). Aşım, `DesignSteel.GetSummaryResults` sonucunda hata ya da uyarı olarak görünmez.
+  - `InitializeRatioLimits` sınırları `Steel Frame Design Preferences - <kod>` ve `Composite Column Design Preferences - <kod>` tablolarının `DCLimit` alanından okur. App.config `DesignRatioLimit` > 0 ise önce bu değeri yazar; ETABS yeniden başlatılınca tekrar yazılır.
+  - `Groups.PMMRatio` (çelik) = ETABS oranı / `SteelRatioLimit`.
+  - Kompozit grup oranı = max(detay oranı, dayanım / `CompositeRatioLimit`). `CompositeStrength` ham oranı saklar (kalibrasyon için).
+  - `ETABSRatioByVar` ve `ETABSCompositeRatios` = ETABS oranı / `CompositeRatioLimit`. Koruma döngüsü ve uyarılar > 1 ile çalışır.
+  - Yeni bir oran eklenirse sınıra bölünmelidir.
+- **Deprem süzgeci:**
+  - `TubeSettings_.SeismicDuctility` (None / Moderate / High, varsayılan High).
+  - Sınırlar TBDY 2018 Tablo 9.3'ün kompozit satırlarıdır (= AISC 341-10 D1.1): kutu b/t ≤ 1,4 / 2,26 √(E/Fy), boru D/t ≤ 0,076 / 0,15 E/Fy.
+  - b: kütüphanedeki HSS'te B − 3t, yapma kutuda B − 2t (`SeismicSlenderness`).
+  - Kaynak: kullanıcının paylaştığı Tablo 9.3 görüntüsü (2026-10-04). AISC 341-22 metni elde değil.
 
 ### A4. Depo
 - Depoya girmeyenler:

@@ -1,6 +1,6 @@
 # Steel Frame Optimization with Composite Tube Columns (ETABS)
 
-> **Status: in development (0.4.0).** This project starts from
+> **Status: in development (0.4.1).** This project starts from
 > [SteelFamewithCompositeColumn_ETABS](https://github.com/ibrahimaydogdu/SteelFamewithCompositeColumn_ETABS) (2026.10.3).
 > Added so far: Social Spider Optimization (16th method) and concrete-filled tube columns. Planned:
 > - a hybrid design where each column group can be steel or composite;
@@ -41,6 +41,7 @@ formwork in composite mode.
 - **Concrete-filled tube columns (AISC 360-16 / 360-22 I2.2):**
   - square HSS boxes of the CSI section library and built-up boxes up to 1000 mm, optional rectangular boxes and pipes (`TubeSections.xml`);
   - the fill concrete is the concrete of the model;
+  - seismic wall slenderness limits of TBDY 2018 Table 9.3 / AISC 341 (high ductility by default);
   - internal check during the search, ETABS filled tube sections and composite column design for the final design.
 - **Encased composite columns (AISC 360-16 / 360-22):**
   - a fast internal check is used during the search;

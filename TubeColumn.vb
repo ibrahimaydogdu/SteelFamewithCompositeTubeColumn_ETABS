@@ -20,6 +20,15 @@ Public Enum TubeShape_
     Pipe = 1
 End Enum
 
+'Width-to-thickness limits of the walls of filled composite members for seismic design: TBDY 2018 Table 9.3 (composite
+'members) = AISC 341-10 Table D1.1. Box: b/t <= 1.4 sqrt(E/Fy) (high) / 2.26 sqrt(E/Fy) (moderate); pipe: D/t <= 0.076 E/Fy /
+'0.15 E/Fy. b: flat width, B - 3t for library HSS (corner radius), B - 2t for built-up boxes.
+Public Enum SeismicDuctility_
+    None = 0
+    Moderate = 1
+    High = 2
+End Enum
+
 Public Class TubeSection_
     Public Name As String           'library label (HSS...) or built-up box BU<H>X<B>X<t>
     Public Shape As TubeShape_
@@ -67,6 +76,7 @@ Public Class TubeSettings_
     Public BuiltUpStep As Double = 50            '[mm]
     Public BuiltUpThicknesses As String = "12,15,20,25,30,35,40,50"      '[mm] plate thicknesses
     Public ConcreteMaterial As String = ""       'empty: concrete material of the model
+    Public SeismicDuctility As SeismicDuctility_ = SeismicDuctility_.High     'TBDY 2018 Table 9.3 / AISC 341 wall slenderness
     Public K22 As Double = 1.0
     Public K33 As Double = 1.0
     Public B2 As Double = 1.0
@@ -99,11 +109,25 @@ Public Class TubeSettings_
         Return If(Shape = TubeShape_.Pipe, PipePrefix, BoxPrefix)
     End Function
 
+    'Wall slenderness limit of the seismic ductility level (Double.MaxValue: no limit)
+    Public Function SeismicLimit(ByVal Shape As TubeShape_, ByVal Mat As CompositeMaterial_) As Double
+        If SeismicDuctility = SeismicDuctility_.None Then Return Double.MaxValue
+        Dim High As Boolean = SeismicDuctility = SeismicDuctility_.High
+        If Shape = TubeShape_.Pipe Then Return If(High, 0.076, 0.15) * Mat.Es / Mat.Fy
+        Return If(High, 1.4, 2.26) * Math.Sqrt(Mat.Es / Mat.Fy)
+    End Function
+
+    'Wall slenderness for the seismic check: pipe D/t, box b/t of the wider wall
+    Public Shared Function SeismicSlenderness(ByVal S As TubeSection_) As Double
+        If S.Shape = TubeShape_.Pipe Then Return S.H / S.t
+        Return (Math.Max(S.H, S.B) - If(S.BuiltUp, 2, 3) * S.t) / S.t
+    End Function
+
     'Library sections (mm) and built-up boxes; sections beyond lambda_max (compression or flexure) are removed.
     'Mat: Fy and Es of the column steel for the classification.
     Public Function Catalog(ByVal LibraryFile As String, ByVal Mat As CompositeMaterial_, ByRef Log As String) As List(Of TubeSection_)
         Dim L As New List(Of TubeSection_)
-        Dim NLib As Integer = 0, NBu As Integer = 0, NSlender As Integer = 0
+        Dim NLib As Integer = 0, NBu As Integer = 0, NSlender As Integer = 0, NSeismic As Integer = 0
         If Not String.IsNullOrWhiteSpace(LibraryFile) AndAlso IO.File.Exists(LibraryFile) Then
             Dim doc As XDocument = XDocument.Load(LibraryFile)
             Dim ns As XNamespace = doc.Root.Name.Namespace
@@ -152,6 +176,7 @@ Public Class TubeSettings_
         For Each s In L
             Dim C As CompositeSection = s.Build(Mat)
             If C.Classify(False) = CompositeClass_.TooSlender OrElse C.Classify(True) = CompositeClass_.TooSlender Then NSlender += 1 : Continue For
+            If SeismicSlenderness(s) > SeismicLimit(s.Shape, Mat) Then NSeismic += 1 : Continue For
             Kept.Add(s)
         Next
         'one section per geometry (library and built-up may coincide), sorted by steel area
@@ -159,7 +184,8 @@ Public Class TubeSettings_
                     Select(Function(g) g.OrderBy(Function(s) If(s.BuiltUp, 1, 0)).First()).
                     OrderBy(Function(s) s.SteelArea).ThenBy(Function(s) s.H).ToList()
         Log = "tube catalog: " & Kept.Count & " sections (library " & NLib & ", built-up " & NBu & "; removed: " &
-              (Before - L.Count) & " below " & MinDimension & " mm, " & NSlender & " beyond lambda_max, duplicates merged)"
+              (Before - L.Count) & " below " & MinDimension & " mm, " & NSlender & " beyond lambda_max, " & NSeismic & " beyond the " &
+              SeismicDuctility.ToString().ToLowerInvariant() & " ductility limit (TBDY 2018 Table 9.3), duplicates merged)"
         Return Kept
     End Function
 End Class

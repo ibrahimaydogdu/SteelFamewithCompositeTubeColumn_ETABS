@@ -21,6 +21,9 @@
   <BuiltUpMax>1000</BuiltUpMax>
   <BuiltUpStep>50</BuiltUpStep>
   <BuiltUpThicknesses>12,15,20,25,30,35,40,50</BuiltUpThicknesses>
+  <!-- seismic wall slenderness, TBDY 2018 Table 9.3 composite members (= AISC 341-10 Table D1.1):
+       High: box b/t <= 1.4 sqrt(E/Fy), pipe D/t <= 0.076 E/Fy; Moderate: 2.26 sqrt(E/Fy), 0.15 E/Fy; None: AISC 360 limits only -->
+  <SeismicDuctility>High</SeismicDuctility>
   <!-- empty: the concrete material of the model (the first one if there are several) -->
   <ConcreteMaterial></ConcreteMaterial>
   <!-- effective length factors (buckling about local 2 / local 3) and sway amplifier B2 (1.0 = P-Delta analysis) -->
