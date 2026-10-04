@@ -483,7 +483,7 @@ Formda *Composite columns* + *Filled tube* seçildiğinde kolon gruplarının ta
 - Alt sınır kataloğun en küçük kesitidir.
 - Üst sınır, ilk tasarımdaki W kesitinin Fy·As değerine en az eşit Pno'ya sahip ilk tüpten başlar; referanstaki gibi kayma payı eklenir.
 
-**Deprem şartnamesi** (`SeismicDuctility`, varsayılan `High`): TBDY 2018 Tablo 9.3'ün "Kompozit Elemanlar" satırları uygulanır (AISC 341-10 Tablo D1.1 ile aynı).
+**Deprem şartnamesi** (`SeismicDuctility`, varsayılan `High`): TBDY 2018 Tablo 9.3'ün "Kompozit Elemanlar" satırları uygulanır. Değerler AISC 341-10 Tablo D1.1'in "Composite Elements" satırlarıyla aynıdır.
 
 | Düzey | Kutu cidarı b/t | Boru cidarı D/t | Varsayılan katalog (Fy = 345 MPa) |
 |---|---|---|---|

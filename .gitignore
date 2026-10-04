@@ -40,3 +40,7 @@ BackUp.xml
 _cc/
 _pkg/
 dist/
+
+# görüntüler (şartname tablolarının ekran görüntüleri vb.; depoya girmez)
+/*.jpg
+/*.png

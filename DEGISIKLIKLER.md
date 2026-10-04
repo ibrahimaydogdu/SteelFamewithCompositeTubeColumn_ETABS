@@ -32,7 +32,8 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
   | Yüksek (λhd) | 1,4 √(E/Fy) | 0,076 E/Fy |
   | Sınırlı (λmd) | 2,26 √(E/Fy) | 0,15 E/Fy |
 
-  AISC 341-16 bağlantısının (Scribd) içeriği okunamadı.
+  - Doğrulama: kullanıcının daha sonra gönderdiği AISC 341-10 Tablo D1.1 devam sayfası ("Walls of rectangular / round filled composite members") aynı değerleri veriyor; kompozit satırlarda dipnot yok.
+  - AISC 341-16 bağlantısının (Scribd) içeriği okunamadı.
 - **Kod:**
   - `TubeSettings_.SeismicDuctility` (None / Moderate / High; kullanıcı kararıyla varsayılan **High**);
   - `SeismicLimit`, `SeismicSlenderness` (b: kütüphanedeki HSS'te B − 3t, yapma kutuda B − 2t);

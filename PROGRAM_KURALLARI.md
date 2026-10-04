@@ -76,7 +76,7 @@ Diğer belgeler:
   - `TubeSettings_.SeismicDuctility` (None / Moderate / High, varsayılan High).
   - Sınırlar TBDY 2018 Tablo 9.3'ün kompozit satırlarıdır (= AISC 341-10 D1.1): kutu b/t ≤ 1,4 / 2,26 √(E/Fy), boru D/t ≤ 0,076 / 0,15 E/Fy.
   - b: kütüphanedeki HSS'te B − 3t, yapma kutuda B − 2t (`SeismicSlenderness`).
-  - Kaynak: kullanıcının paylaştığı Tablo 9.3 görüntüsü (2026-10-04). AISC 341-22 metni elde değil.
+  - Kaynak: kullanıcının paylaştığı TBDY 2018 Tablo 9.3 ve AISC 341-10 Tablo D1.1 (devam sayfası, "Composite Elements") görüntüleri (2026-10-04). İki kaynakta değerler aynı; kompozit satırlarda dipnot yok. AISC 341-16/22 metni elde değil.
 
 ### A4. Depo
 - Depoya girmeyenler:
