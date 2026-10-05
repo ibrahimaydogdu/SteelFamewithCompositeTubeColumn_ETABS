@@ -363,6 +363,10 @@ Public Class MainForm
         PhaseText = If(RunFailed, "Failed (see ErrorLog.txt)", If(StopRequested, "Stopped", "Finished")) & " " & Date.Now.ToString("HH:mm:ss")
         PhaseClock = Nothing
         ShowStatus()
+        If BatchMode Then
+            BatchLog("Info: " & PhaseText)
+            If RunFailed Then Environment.ExitCode = 1
+        End If
         If CloseAfterRun Then Close()
     End Sub
 
@@ -438,11 +442,65 @@ Public Class MainForm
 
     'ETABS class may not exist yet (validation error, math test mode)
     Private Sub LogError(ByVal msg As String)
+        If BatchMode Then BatchLog(msg)
         If ETABSModel IsNot Nothing Then
             ETABSModel.Errorlogprint(msg)
-        Else
+        ElseIf Not BatchMode Then
             UI(Sub() MsgBox(msg))
         End If
+    End Sub
+
+    '_______________________________________________________________________________________________
+    'Batch mode (tools\RunBatch.ps1): FrameSap2000.exe /batch <settings.xml> [/resume]
+    '  settings.xml: the run settings (serialized FormInfo_, as in the backup / output files); /resume continues the
+    '  run from its backup (<output>.backup.xml). No message boxes: messages and questions go to <settings>.batch.log
+    '  (questions are answered Yes / OK); the program closes when the run ends (exit code 1 if it failed).
+    Private BatchMode As Boolean
+    Private BatchFile As String
+
+    Private Sub BatchLog(ByVal msg As String, Optional ByVal MustWrite As Boolean = False)
+        Try
+            File.AppendAllText(Path.ChangeExtension(BatchFile, ".batch.log"), Date.Now.ToString("yyyy-MM-dd HH:mm:ss") & " " & msg & Environment.NewLine)
+        Catch When Not MustWrite
+        End Try
+    End Sub
+
+    'MsgBox of the form: logged in batch mode (no window)
+    Private Function MsgBox(ByVal Prompt As Object, Optional ByVal Buttons As MsgBoxStyle = MsgBoxStyle.OkOnly, Optional ByVal Title As Object = Nothing) As MsgBoxResult
+        If Not BatchMode Then Return Interaction.MsgBox(Prompt, Buttons, Title)
+        BatchLog("Message: " & CStr(Prompt).Replace(Environment.NewLine, " / "))
+        Return If((Buttons And MsgBoxStyle.YesNo) = MsgBoxStyle.YesNo, MsgBoxResult.Yes, MsgBoxResult.Ok)
+    End Function
+
+    Private Sub MainForm_Shown(sender As Object, e As EventArgs) Handles Me.Shown
+        Dim A() As String = Environment.GetCommandLineArgs()
+        Dim i As Integer = Array.FindIndex(A, Function(x) x.Equals("/batch", StringComparison.OrdinalIgnoreCase))
+        If i < 0 OrElse i + 1 >= A.Length Then Return
+        BatchMode = True
+        BatchFile = Path.GetFullPath(A(i + 1))
+        Try
+            'the log must be writable (e.g. paths over 260 characters are not: the run would go on without any messages)
+            BatchLog("Info: batch run " & BatchFile & ", program " & GetType(MainForm).Assembly.GetName().Version.ToString(), MustWrite:=True)
+            Using R As New StreamReader(BatchFile)
+                FormInfo = CType(New XmlSerializer(GetType(MiscellaneousStructures.FormInfo_)).Deserialize(R), MiscellaneousStructures.FormInfo_)
+            End Using
+            FormInfo_Write()
+            BackUp.Checked = A.Any(Function(x) x.Equals("/resume", StringComparison.OrdinalIgnoreCase))
+            Text = AppTitle & "  -  batch " & Path.GetFileName(BatchFile)
+            start.PerformClick()
+            If Not IsRunning Then
+                BatchLog("Error: the run did not start (see the messages above)")
+                Environment.ExitCode = 1
+                Close()
+                Return
+            End If
+            ETABS_Class.MessageHandler = Sub(Text As String, Style As MsgBoxStyle) BatchLog("Message: " & Text)
+            CloseAfterRun = True
+        Catch ex As Exception
+            BatchLog("Error: " & ex.Message)
+            Environment.ExitCode = 1
+            Close()
+        End Try
     End Sub
     Private RunFailed As Boolean
     Private Sub CloseETABS(ByVal ret As Integer)

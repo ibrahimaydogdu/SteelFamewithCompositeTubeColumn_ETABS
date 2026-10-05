@@ -4,6 +4,45 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
+## 2026-10-05 — Aşama 7: Toplu koşu ve uzun karşılaştırma (SSO / HS / ABC)
+
+**Kullanıcı kararları:** HS ve ABC karşılaştırma için uygun. Uzun koşu bütçesi 500 analiz; modlar çelik, kompozit ve hibrit; 1 tohum (gerekirse artırılacak); aynı anda 3 ETABS.
+
+**Kod**
+- `MainForm`: toplu koşu modu `FrameSap2000.exe /batch <ayar.xml> [/resume]`.
+  - Ayarlar XML'den okunur ve koşu başlatılır.
+  - Mesaj kutuları ve sorular `<ayar>.batch.log` dosyasına yazılır; sorular Yes / OK ile cevaplanır.
+  - Koşu bitince program kapanır; başarısızlıkta çıkış kodu 1 olur.
+  - İlk günlük satırı yazılamazsa program hemen kapanır. Örnek neden: 260 karakteri aşan yol.
+- Yeni `tools/RunBatch.ps1`:
+  - koşu listesi (CSV) → her koşu için ayrı klasör, model kopyası ve ayar dosyası;
+  - en çok N paralel süreç, aralıklı başlatma, `-Resume`, `-SummaryOnly`;
+  - `summary.csv`;
+  - uzun yol denetimi (en çok 230 karakter).
+- `tools/batch_template.xml`: formun varsayılan ayarları. `tools/Asama7_runs.csv`: 9 koşu (3 yöntem × 3 mod; 500 analiz, popülasyon 20, tohum 1; ABC Limit = 10).
+- `KULLANIM_KILAVUZU.md` 8.4.
+
+**Testler**
+- Derleme (MSBuild Release): hata yok.
+- **Duman testi:** 2 paralel koşu, 525M kopyası, 12 analiz, popülasyon 4.
+
+  | Koşu | Analiz | Maliyet | Final ceza | Final | Süre |
+  |---|---|---|---|---|---|
+  | SSO hibrit | 15 | 8360,45 | 0 | geçti | 0,16 sa |
+  | ABC çelik | 15 | 8597,98 | 0 | geçti | 0,13 sa |
+
+  - Ayarlar sonuç dosyasına doğru yansıdı: yöntem, bütçe, popülasyon, mod, `HideETABS`, ABC `Limit`.
+  - Programlar kendiliğinden kapandı; `summary.csv` doğru (hibrit yığın satırları dahil).
+  - Aynı anda iki ETABS örneği lisans sorunu olmadan çalıştı.
+  - Analiz süresi 2 paralel koşuda yaklaşık 45 s.
+- **Bulunan sorun:** geçici klasördeki uzun yolda (8.3 kısa ad açılınca 260 karakter) günlük ve yedek yazılamadı.
+  - Koşu sürdü ama yalnızca uyarı verdi.
+  - Düzeltme: günlük denetimi ve betikteki yol sınırı.
+  - Test: 260 karakterlik yolda program ETABS açmadan çıkış kodu 1 ile kapandı; betik yolu reddetti.
+- **Uzun koşular:** 2026-10-05 21:18'de başladı (`D:\Kosular\Asama7`). Sonuçlar bu bölüme eklenecek.
+
+---
+
 ## 2026-10-05 — Aşama 6: Hibrit kolonlar (grup grup çelik / kompozit, geçiş katının optimizasyonu)
 
 **Kullanıcı kararları** (öneri: `Ajan/Gorevler/ASAMA6_ONERI.md`)

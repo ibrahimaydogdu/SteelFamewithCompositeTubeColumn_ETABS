@@ -575,6 +575,37 @@ Yedek denetimleri:
 | Tasarım grupları veya kesit kütüphanesi farklı (ETABS modeli okuduktan sonra) | Koşu açık bir mesajla durur. |
 | Yedek başlangıç belleği sırasında yazılmış (eksik bellek) | Eksik tasarımlar üretilir ve yöntem durumu kurulur. |
 
+### 8.4 Toplu koşu (`tools\RunBatch.ps1`)
+Yöntem karşılaştırması gibi çok sayıda uzun koşu için form açmadan, sırayla ya da aynı anda birkaç koşu yapılabilir.
+
+**Program tarafı:** `FrameSap2000.exe /batch <ayar.xml> [/resume]`
+- `<ayar.xml>` formun ayarlarıdır (yedek ve sonuç dosyalarındaki `FormInfo_` biçimi). Şablon: `toolsatch_template.xml`.
+- Mesaj kutusu açılmaz. Mesajlar `<ayar>.batch.log` dosyasına yazılır, sorular *Yes / OK* ile cevaplanır.
+- Koşu bitince program kapanır; koşu başarısızsa çıkış kodu 1 olur. `/resume` koşuya yedekten devam eder.
+- Günlük dosyası yazılamazsa program hemen kapanır (çıkış kodu 1).
+
+**Betik:** koşu listesi bir CSV dosyasıdır (örnek: `tools\Asama7_runs.csv`).
+
+| Sütun | Anlamı |
+|---|---|
+| Name | koşu adı (klasör ve dosya adı) |
+| Model | model dosyası; göreli yol CSV'nin klasörüne göre |
+| Method | `OptMethod_` adı: `SocialSpider`, `HarmornySearch`, `ArtificialBeeColony`, … |
+| Mode | `Steel` / `Composite` / `Hybrid` |
+| MaxAnalyses, MemorySize, Seed | analiz bütçesi, popülasyon, tohum |
+| Transition | hibritte `PerStack` / `PerGroup` (isteğe bağlı) |
+| AbcLimit | ABC terk sınırı (isteğe bağlı) |
+
+```
+powershell -ExecutionPolicy Bypass -File tools\RunBatch.ps1 -Runs tools\Asama7_runs.csv -Out D:\Kosular\Asama7 -Exe D:\Kosular\Asama7in\FrameSap2000.exe -Parallel 3 -StartDelay 180
+```
+- Her koşu `<Out>\<Name>` klasöründe modelin **kopyasıyla** çalışır; orijinal model değişmez. `ErrorLog.txt`, sonuç, Excel ve `_best.EDB` dosyaları da bu klasöre yazılır.
+- En çok `-Parallel` koşu aynı anda çalışır ve koşular `-StartDelay` saniye arayla başlatılır. Her koşu ayrı bir ETABS açar; ETABS lisansının birden fazla örneğe izin vermesi gerekir.
+- Sonucu olan koşular atlanır. Kesilen koşular `-Resume` ile yedekten devam eder.
+- Sonunda `<Out>\summary.csv` yazılır. Sütunlar: analiz sayısı, en iyi maliyet ve cezası, final analizdeki maliyet ve ceza, final durumu, süre (saat) ve hibrit yığınların geçişi. Yalnızca özet için: `-SummaryOnly`.
+- **Yol uzunluğu:** program 260 karakteri aşan yollara yazamaz. Betik, en uzun dosya yolu 230 karakteri aşarsa durur; `-Out` için kısa bir klasör seçin.
+- Koşular sürerken aynı exe yeniden derlenemez. Bu nedenle exe'yi (`bin\Release` içeriğini) koşu klasörüne kopyalayıp `-Exe` ile o kopyayı verin.
+
 ---
 
 ## 9. Çıktılar ve sonuçların yorumlanması
