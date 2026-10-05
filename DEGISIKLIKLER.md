@@ -4,6 +4,78 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
+## 2026-10-05 — Aşama 6: Hibrit kolonlar (grup grup çelik / kompozit, geçiş katının optimizasyonu)
+
+**Kullanıcı kararları** (öneri: `Ajan/Gorevler/ASAMA6_ONERI.md`)
+- **Geçiş:** hem yığın bazında hem grup bazında olabilir; iki seçenek olarak eklendi, varsayılan yığın bazında.
+- **Gruplama:** kullanıcıya bırakılıyor; program modeldeki grupları kullanıyor.
+  - İleride bir model oluşturucu yazılacak. Plan: kolonlarda köşe / kenar / iç, kirişlerde kenar / iç; farklı uzunluklar için gruplar çoğaltılır (`AKIS_SEMASI.md` Bölüm 5).
+- **Ters düzen** (kompozit grup çeliğin üstüne sabitlenmiş): yalnızca uyarı.
+- **460Member:** şimdilik olduğu gibi kalıyor.
+- **Tip seçimi:** formda bir tabloyla.
+- **İki kesit değişkeni:** öneriye itiraz gelmediği için uygulandı.
+
+**Kod**
+- Yeni `HybridColumns.vb` (`Partial Class ETABS_Class`):
+  - **tipler:** `TransitionMode_` (PerStack / PerGroup), `GroupColumnType_` (Optimize / Steel / Composite), `GroupTypeSetting_`, `ColumnGroupInfo_`;
+  - **kolon yığınları:** kolon–kolon çiftlerinden birleşik bileşenler, en düşük kota göre sıralı;
+  - **tasarım vektörü:** `[grup değişkenleri][Optimize gruplarının kompozit kesiti][geçiş / tip değişkenleri]`;
+  - **çözme ve geri yazma:** `DecodeHybrid` / `EncodeHybrid` / `GroupVector`;
+  - **çıktı ve yardımcılar:** `DescribeDesign` (yığın satırları dahil), `CtoCRatio` (W kolon tüpün üzerinde: W derinliği ≤ H, başlık ≤ B), ACO için `FullVarCount/FullVarArea`, Check Structure için `SetGroupTypes`;
+  - **form:** `ReadColumnGroups` (gizli ETABS ve model kopyasıyla kolon grupları).
+- `ETABSClass.vb`:
+  - `Initialize_UBLB` her grup için çelik ve kompozit sınırlarını ayrı ayrı hesaplıyor; hibrit olmayan modlarda sonuç öncekiyle aynı.
+  - Değerlendirme zinciri grup vektörüyle çalışıyor; zincirde `GUb/GLb` kullanılıyor.
+  - Tipi değişen grup yeniden atanıyor (`AssignedComp`); çeliğe dönen grubun tasarım prosedürü SteelFrameDesign yapılıyor. `LastAnalysedComp` eklendi.
+  - Kolon–kolon geometrisinde `CtoCRatio` kullanılıyor.
+  - Gruplarda `IsColumn` alanı var.
+- `Structures.vb`: `Group_.IsColumn`; `FormInfo.HybridColumns`, `TransitionMode`, `GroupTypes`.
+- `OptimizationClass.vb`: en iyi ve final tasarımın yazımı `DescribeDesign` ile.
+- `OptimizationMethods.vb`: ACO sezgiseli tam vektör anlamıyla.
+- `MainForm`:
+  - "Hybrid Columns" kutusu: hibrit seçimi, geçiş modu, "Read column groups of the model" düğmesi, grup tipi tablosu;
+  - doğrulama: hibrit için Composite columns gerekli;
+  - Check Structure'da tipler sonuç dosyasındaki `[CFT ` / `[CFP ` / `[EC ` işaretlerinden okunuyor.
+  - Frame Properties kutusu kısaltıldı.
+- Önerideki ayrı grup çakışması kontrolü eklenmedi. Referanstaki `InitializeFrames` birden fazla grupta olan elemanları zaten bildiriyor ("More group definition than 1"; 460Member'da 10 eleman). Eklediğim özet kontrolü bu nedenle kaldırdım.
+- Sürüm 0.5.0. Belgeler:
+  - kılavuz: 5.2, yeni 7.7;
+  - kurallar: A7;
+  - `README.md`.
+
+**Testler**
+
+| Test | Sonuç |
+|---|---|
+| vbc ve MSBuild `Rebuild` | 0 hata, 0 uyarı; exe 0.5.0.0 |
+| MathTest | Aşama 3–4 ile birebir aynı |
+| **Gömülü mod regresyonu** (525M, tohum 12345) | 7564,91 / 1,4580 ve 7068,84 / 1,8032; önbellek tekrarı Aşama 5.1 ile **birebir aynı** |
+| Grup okuyucu (`ReadColumnGroups`) | 525M: 10 kolon grubu, 0–70000 mm kotları ve katları doğru. 460Member: 8 grup; grup 11'in katları "Story20, Story6, Story5" (çakışma görünüyor). |
+| **Hibrit, yığın bazında** (525M, 3 değerlendirme) | ayrıntılar aşağıda |
+| **Hibrit, grup bazında, sabit tiplerle** (5 = Composite, 12 = Steel, 14 = Composite; 2 değerlendirme) | 28 değişken (7 Optimize grup için 7 tip değişkeni); sabit tipler uygulandı; "group 14 is fixed composite above a fixed steel group" uyarısı yazıldı; uyumsuzluk 0 |
+| **Hibrit uçtan uca** (525M, SSO, 4 örümcek, 16 analiz, final) | ayrıntılar aşağıda |
+| Form | grup tablosu dolduruluyor; önceki tip seçimleri korunuyor (5 = Composite, 13 = Steel); tablodan tipler doğru geri okunuyor; sütunlar sığıyor (ekran görüntüsüyle kontrol edildi) |
+
+Hibrit, yığın bazında testinin ayrıntıları:
+- 26 değişken; yığınlar 5-7-9-11-13 | 6-8-10-12-14.
+- Geçiş değerleri doğru çözüldü. Örneğin t = (5, 1) → çevre yığınının tamamı kompozit, orta yığında yalnızca 6 kompozit.
+- Her değerlendirmede ETABS'teki kesit ve tasarım prosedürü tiple **birebir uyumlu**: kompozit grupta `CFT_…` ve prosedür 7, çelik grupta W ve prosedür 1. Uyumsuzluk 0.
+- Tipi değişen gruplar doğru güncellendi: grup 5 tüpten W1100X499'a döndü ve prosedürü 1 oldu.
+- Önbellek tekrarı aynı sonucu verdi.
+
+Hibrit uçtan uca testinin ayrıntıları:
+- **Final tasarım:** çevre yığını tümüyle kompozit; orta yığında 6 ve 8 kompozit, 10–12–14 çelik.
+- **Final doğrulaması:** yalnızca 7 kompozit grup Filled Steel Tube kesitine çevrildi ve ETABS kompozit tasarımıyla kontrol edildi. ETABS / iç hesap farkı ≤ %1 (ör. 0,635 / 0,637). Çelik gruplar ETABS çelik tasarımında kaldı.
+- **Çıktılar:** sonuç XML'i, Excel, `_best.EDB` ve yedek yazıldı; yığın satırları çıktıda var.
+- **Toplam süre:** 1954 s.
+- Kısa koşuda uygun tasarım yok (final cezası 0,911); bu bir optimizasyon sonucu değil.
+
+Notlar:
+- 460Member, öteleme kontrolü "yalnızca yanal yükler" modunda başlatılamıyor. Modelde rüzgâr ya da deprem yük durumu yok: "No lateral (wind/earthquake) combination or case found". Kolonları kompozit kolon tasarım prosedüründe olduğu için zaten tasarım değişkeni sayılmıyor.
+- Test programım bu başlatma hatasında çöktü ve açtığı gizli ETABS örneğini kapatamadı. Yalnızca testin başlattığı bu örnek, başlangıç saatiyle doğrulanarak kapatıldı. Kullanıcının ETABS oturumu yoktu; programın kendi kodu etkilenmedi.
+
+---
+
 ## 2026-10-04 — Aşama 5.1: D/C oranı sınırı (ETABS ile tutarlılık) ve deprem şartnamesi süneklik süzgeci
 
 **1. D/C oranı sınırı (kullanıcı: "1. notu incele, ciddi sorun")**

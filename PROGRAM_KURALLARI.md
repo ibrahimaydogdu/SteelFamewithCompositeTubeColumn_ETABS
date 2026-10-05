@@ -37,10 +37,12 @@ Diğer belgeler:
 ### A3. Durum (Aşama 2)
 - Kod, referans projenin (sürüm 2026.10.3) kopyası. Eklemeler:
   - 16. yöntem SSO (Aşama 3–4; `SocialSpider.vb`);
-  - dolgulu tüp kolonlar (Aşama 5; `TubeColumn.vb`, `TubeSections.xml`). Kurallar A5'te.
+  - dolgulu tüp kolonlar (Aşama 5; `TubeColumn.vb`, `TubeSections.xml`). Kurallar A5'te;
+  - D/C sınırı ve deprem süzgeci (Aşama 5.1). Kurallar A6'da;
+  - hibrit kolonlar (Aşama 6; `HybridColumns.vb`). Kurallar A7'de.
 - Kök ad alanı ve exe adı `FrameSap2000` olarak korundu, böylece ayar ve yedek dosyaları uyumlu kalıyor.
 - Değişenler yalnızca şunlar:
-  - ürün adı ve sürüm (0.4.1);
+  - ürün adı ve sürüm (0.5.0);
   - pencere başlığı;
   - proje/çözüm adları ve GUID'leri.
 - Aşağıdaki B bölümü referansın kurallarıdır ve koda birebir uyar. CFT/CFP ve hibrit tasarım eklendikçe B bölümü güncellenecek. Şimdilik "kompozit" dendiğinde gömülü kesit kastediliyor.
@@ -77,6 +79,29 @@ Diğer belgeler:
   - Sınırlar TBDY 2018 Tablo 9.3'ün kompozit satırlarıdır (= AISC 341-10 D1.1): kutu b/t ≤ 1,4 / 2,26 √(E/Fy), boru D/t ≤ 0,076 / 0,15 E/Fy.
   - b: kütüphanedeki HSS'te B − 3t, yapma kutuda B − 2t (`SeismicSlenderness`).
   - Kaynak: kullanıcının paylaştığı TBDY 2018 Tablo 9.3 ve AISC 341-10 Tablo D1.1 (devam sayfası, "Composite Elements") görüntüleri (2026-10-04). İki kaynakta değerler aynı; kompozit satırlarda dipnot yok. AISC 341-16/22 metni elde değil.
+
+### A7. Hibrit kolonlar (Aşama 6, `HybridColumns.vb`)
+- **Mod:** `FormInfo.HybridColumns` (CompositeColumns ile birlikte), `TransitionMode` (PerStack / PerGroup), `GroupTypes` (grup adı → Optimize / Steel / Composite; eksik = Optimize).
+- **Tasarım vektörü:** `[NG grup değişkeni][Optimize gruplarının kompozit kesit değişkeni][tip değişkenleri]`.
+  - Grup değişkeni: sabit tipte o tipin kesiti, Optimize'da W kesiti.
+  - Tip değişkeni: PerStack'te yığın başına 0 … (yığındaki Optimize sayısı); PerGroup'ta grup başına 0 / 1.
+- **Değerlendirme:**
+  - `EvaluateCore`, `GroupVector`/`DecodeHybrid` ile vektörü grup başına tek kesite çevirir. `Groups().IsComposite` (o tasarımın tipi) ve `GUb/GLb` (etkin tipin sınırları) burada kurulur.
+  - Değerlendirme zinciri bu grup vektörüyle çalışır; sonunda `EncodeHybrid` onarılmış kesitleri vektöre geri yazar. Tip değişkenlerini onarım değiştirmez.
+  - Dışarıdan vektör alan fonksiyonlar (`StepUpETABSFailures`, `CostBreakdown`, `DescribeDesign`) da `GroupVector` kullanır.
+  - Değerlendirme zincirinde `Ub/Lb` değil `GUb/GLb` kullanılır. `Ub/Lb` optimizasyon yönteminin tam vektör sınırlarıdır.
+- **ETABS ataması:** `AssignedComp`; tipi değişen grup yeniden atanır. Çeliğe dönen grubun tasarım prosedürü SteelFrameDesign yapılır. `LastAnalysedComp` tip değişince analiz atlamasını engeller.
+- **Geometri:** `CtoCRatio`.
+  - Aynı katalog: max(alan, derinlik oranı); bu, Aşama 6 öncesiyle aynıdır.
+  - Tüp üstünde W: W derinliği / H, başlık / B.
+- **Yığınlar:** `InitializeGeometricCons` içindeki kolon–kolon çiftlerinden (`ColumnPairs`, SkipCtoC'den bağımsız) birleşik bileşenler bulunur ve en düşük kota göre sıralanır.
+- **Sınırlar:** `Initialize_UBLB` her grup için hem çelik (`SteelUb/Lb`) hem kompozit (`CompUb/Lb`) sınırlarını hesaplar. Hibrit olmayan modlarda `Ub/Lb` bunlardan seçilir ve sonuç Aşama 5.1 ile aynıdır.
+- **ACO:** `FullVarCount` / `FullVarArea`, vektörün sabit anlamına göre çalışır (o anki tipe göre değil).
+- **Grup çakışması:** birden fazla grupta olan elemanları referanstaki `InitializeFrames` kontrolü zaten yakalıyor ("More group definition than 1" hatası). Ayrı bir kontrol eklenmedi.
+- **Form:**
+  - `ReadColumnGroups` (Shared), gizli ETABS ve model kopyasıyla kolon gruplarını okur;
+  - `GroupTypeGrid` tablosu tipleri tutar;
+  - Check Structure'da tipler sonuç dosyasındaki `[CFT ` / `[CFP ` / `[EC ` işaretlerinden alınır (`SetGroupTypes`).
 
 ### A4. Depo
 - Depoya girmeyenler:

@@ -48,12 +48,13 @@ Aşama 5  Dolgulu tüp kolon (CFT/CFP)                                         [
    │       - ETABS'te kesit tanımı (OAPI'de Set metodu yok → DatabaseTables; API testiyle doğrulanacak)
    │       - iç çözücü: AISC 360-22 I2.2 (kompakt/narin sınıfı, Pno, EIeff, Mn, etkileşim)
    │       - ETABS DesignCompositeColumn ile karşılaştırma ve kalibrasyon
-Aşama 6  Hibrit tasarım: kolon grubu başına çelik/kompozit
+Aşama 6  Hibrit tasarım: kolon grubu başına çelik/kompozit                    [bitti]
    │       - seçenekler: (a) grup başına kullanıcı seçimi; (b) tip değişkeni optimizasyona eklenir
    │       - maliyet: çelik + beton (+ kalıp yok, tüp kalıp işlevi görür)
 Aşama 7  Uçtan uca koşu: SSO + diğer yöntemler, final ETABS doğrulaması, Excel
 Aşama 8  (isteğe bağlı) Kompozit döşeme tasarımı
 Aşama 9  Kılavuz, README, dağıtım paketi
+Gelecek  Model oluşturucu program (kullanıcının planı, 2026-10-05; bkz. Bölüm 5)
 ```
 
 Her aşamada izlenen adımlar:
@@ -89,3 +90,13 @@ Her aşamada izlenen adımlar:
    - Kesit değişkeni grup tipine göre W havuzundan ya da tüp havuzundan seçilir.
    - Maliyet: çelik + beton (tüp kalıp görevi gördüğü için kalıp yok).
 3. **Aşama 8:** Kompozit döşeme kapsamı: ETABS kompozit kiriş tasarımı mı (`DesignCompositeBeam`), döşeme kalınlığı ve sac profil seçimi mi?
+
+## 5. Gelecek iş: model oluşturucu (kullanıcının planı, 2026-10-05)
+- ETABS modelini parametrelerden kuran ayrı bir program yazılacak.
+- **Otomatik gruplama planı:**
+  - **Kolonlar:** köşe / kenar / iç olmak üzere 3 grup. 525M'de bugün 2 grup var (çevre, orta).
+  - **Kirişler:** kenar / iç olmak üzere 2 grup.
+  - Farklı uzunlukta kiriş ya da kolon varsa gruplar aynı mantıkla çoğaltılır (ör. uzunluk sınıfına göre).
+  - Kat bantları, yani kaç katta bir grup değişeceği, ayrıca tanımlanacak.
+- Aşama 6'dan itibaren optimizasyon programı gruplamayı kullanıcıya bırakır, modeldeki grupları olduğu gibi kullanır.
+- 460Member'daki grup çakışması (20. kat kolonları hem grup 6'da hem grup 11'de) şimdilik düzeltilmiyor. Kullanıcı ileride model oluşturucuyla yeni model kuracak.

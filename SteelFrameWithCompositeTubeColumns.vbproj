@@ -140,6 +140,7 @@
     <Compile Include="OptimizationMethods.vb" />
     <Compile Include="SocialSpider.vb" />
     <Compile Include="TubeColumn.vb" />
+    <Compile Include="HybridColumns.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MainForm.resx">

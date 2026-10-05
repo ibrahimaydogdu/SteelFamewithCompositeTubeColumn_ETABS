@@ -61,6 +61,12 @@ Partial Class MainForm
         Me.Label26 = New System.Windows.Forms.Label()
         Me.CompositeCodeBox = New System.Windows.Forms.ComboBox()
         Me.CompositeTypeBox = New System.Windows.Forms.ComboBox()
+        Me.GroupBox11 = New System.Windows.Forms.GroupBox()
+        Me.HybridBox = New System.Windows.Forms.CheckBox()
+        Me.TransitionLabel = New System.Windows.Forms.Label()
+        Me.TransitionBox = New System.Windows.Forms.ComboBox()
+        Me.ReadGroupsButton = New System.Windows.Forms.Button()
+        Me.GroupTypeGrid = New System.Windows.Forms.DataGridView()
         Me.SkipCases = New System.Windows.Forms.CheckBox()
         Me.PDeltaBox = New System.Windows.Forms.CheckBox()
         Me.GroupBox9 = New System.Windows.Forms.GroupBox()
@@ -435,6 +441,7 @@ Partial Class MainForm
         Me.TabPage2.Controls.Add(Me.GroupBox5)
         Me.TabPage2.Controls.Add(Me.GroupBox8)
         Me.TabPage2.Controls.Add(Me.GroupBox10)
+        Me.TabPage2.Controls.Add(Me.GroupBox11)
         Me.TabPage2.Location = New System.Drawing.Point(4, 25)
         Me.TabPage2.Margin = New System.Windows.Forms.Padding(4)
         Me.TabPage2.Name = "TabPage2"
@@ -552,6 +559,68 @@ Partial Class MainForm
         Me.CompositeTypeBox.Size = New System.Drawing.Size(210, 24)
         Me.CompositeTypeBox.TabIndex = 10
         '
+        'GroupBox11
+        '
+        Me.GroupBox11.Controls.Add(Me.HybridBox)
+        Me.GroupBox11.Controls.Add(Me.TransitionLabel)
+        Me.GroupBox11.Controls.Add(Me.TransitionBox)
+        Me.GroupBox11.Controls.Add(Me.ReadGroupsButton)
+        Me.GroupBox11.Controls.Add(Me.GroupTypeGrid)
+        Me.GroupBox11.Location = New System.Drawing.Point(0, 288)
+        Me.GroupBox11.Name = "GroupBox11"
+        Me.GroupBox11.Size = New System.Drawing.Size(267, 284)
+        Me.GroupBox11.TabIndex = 28
+        Me.GroupBox11.TabStop = False
+        Me.GroupBox11.Text = "Hybrid Columns"
+        '
+        'HybridBox
+        '
+        Me.HybridBox.AutoSize = True
+        Me.HybridBox.Location = New System.Drawing.Point(6, 20)
+        Me.HybridBox.Name = "HybridBox"
+        Me.HybridBox.Size = New System.Drawing.Size(240, 20)
+        Me.HybridBox.TabIndex = 0
+        Me.HybridBox.Text = "Hybrid: steel / composite per group"
+        Me.HybridBox.UseVisualStyleBackColor = True
+        '
+        'TransitionLabel
+        '
+        Me.TransitionLabel.AutoSize = True
+        Me.TransitionLabel.Location = New System.Drawing.Point(6, 49)
+        Me.TransitionLabel.Name = "TransitionLabel"
+        Me.TransitionLabel.Size = New System.Drawing.Size(66, 16)
+        Me.TransitionLabel.TabIndex = 1
+        Me.TransitionLabel.Text = "Transition"
+        '
+        'TransitionBox
+        '
+        Me.TransitionBox.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.TransitionBox.FormattingEnabled = True
+        Me.TransitionBox.Items.AddRange(New Object() {"Per stack (story)", "Per group"})
+        Me.TransitionBox.Location = New System.Drawing.Point(80, 45)
+        Me.TransitionBox.Name = "TransitionBox"
+        Me.TransitionBox.Size = New System.Drawing.Size(181, 24)
+        Me.TransitionBox.TabIndex = 2
+        '
+        'ReadGroupsButton
+        '
+        Me.ReadGroupsButton.Location = New System.Drawing.Point(6, 74)
+        Me.ReadGroupsButton.Name = "ReadGroupsButton"
+        Me.ReadGroupsButton.Size = New System.Drawing.Size(255, 26)
+        Me.ReadGroupsButton.TabIndex = 3
+        Me.ReadGroupsButton.Text = "Read column groups of the model"
+        Me.ReadGroupsButton.UseVisualStyleBackColor = True
+        '
+        'GroupTypeGrid
+        '
+        Me.GroupTypeGrid.AllowUserToAddRows = False
+        Me.GroupTypeGrid.AllowUserToDeleteRows = False
+        Me.GroupTypeGrid.Location = New System.Drawing.Point(6, 104)
+        Me.GroupTypeGrid.Name = "GroupTypeGrid"
+        Me.GroupTypeGrid.RowHeadersVisible = False
+        Me.GroupTypeGrid.Size = New System.Drawing.Size(255, 174)
+        Me.GroupTypeGrid.TabIndex = 4
+        '
         'GroupBox5
         '
         Me.GroupBox5.Controls.Add(Me.Label20)
@@ -574,7 +643,7 @@ Partial Class MainForm
         Me.GroupBox5.Margin = New System.Windows.Forms.Padding(4)
         Me.GroupBox5.Name = "GroupBox5"
         Me.GroupBox5.Padding = New System.Windows.Forms.Padding(4)
-        Me.GroupBox5.Size = New System.Drawing.Size(267, 359)
+        Me.GroupBox5.Size = New System.Drawing.Size(267, 285)
         Me.GroupBox5.TabIndex = 25
         Me.GroupBox5.TabStop = False
         Me.GroupBox5.Text = "Frame Properties"
@@ -1312,6 +1381,12 @@ Partial Class MainForm
     Friend WithEvents Label26 As Label
     Friend WithEvents CompositeCodeBox As ComboBox
     Friend WithEvents CompositeTypeBox As ComboBox
+    Friend WithEvents GroupBox11 As GroupBox
+    Friend WithEvents HybridBox As CheckBox
+    Friend WithEvents TransitionLabel As Label
+    Friend WithEvents TransitionBox As ComboBox
+    Friend WithEvents ReadGroupsButton As Button
+    Friend WithEvents GroupTypeGrid As DataGridView
     Friend WithEvents SkipCases As CheckBox
     Friend WithEvents PDeltaBox As CheckBox
     Friend WithEvents GroupBox9 As GroupBox

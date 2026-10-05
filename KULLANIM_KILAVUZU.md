@@ -1,8 +1,9 @@
 # KULLANIM KILAVUZU
 
-> **Geliştirme durumu (Aşama 5.1, 0.4.1):** Referans projeye (SteelFamewithCompositeColumn_ETABS 2026.10.3) göre farklar:
+> **Geliştirme durumu (Aşama 6, 0.5.0):** Referans projeye (SteelFamewithCompositeColumn_ETABS 2026.10.3) göre farklar:
 > - 16. yöntem olarak eklenen SSO;
-> - kompozit kolon tipi olarak **dolgulu tüp** (bölüm 7.5).
+> - kompozit kolon tipi olarak **dolgulu tüp** (bölüm 7.5);
+> - **hibrit kolonlar:** grup grup çelik / kompozit, geçiş katının optimizasyonu (bölüm 7.7).
 >
 > Gömülü kesit, seçenek olarak duruyor. Bu yüzden kompozit kolonlar gömülü kesitle (W profil + beton + donatı) çözülüyor.
 > Bu projenin hedefleri sonraki aşamalarda eklenecek:
@@ -12,7 +13,7 @@
 
 Kompozit kolonlu uzay çelik çerçevelerin metasezgisel yöntemlerle optimum tasarımı (ETABS 22; ETABS 19 ile de çalışır).
 
-Program sürümü: 0.4.1 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
+Program sürümü: 0.5.0 (exe dosyasında sağ tık > *Özellikler > Ayrıntılar* ve `ErrorLog.txt` dosyasındaki `======== new run` satırı).
 
 ## İçindekiler
 1. [Programın yaptığı iş](#1-programın-yaptığı-iş)
@@ -248,6 +249,7 @@ Kompozit kolonlarda B2 = 1 kabul edilir (`EncasedSections.xml`); bu yüzden anal
   - *Filled tube (box / pipe)* (varsayılan): beton dolgulu çelik kutu (veya boru). Bkz. bölüm 7.5.
   - *Encased (W + concrete + rebar)*: W profilin etrafı donatılı betonla kaplanır. Bkz. bölüm 7.1.
   - Dolgulu tüpte donatı ve kalıp yoktur; bu yüzden *Rebar* ve *Formwork* birim maliyet kutuları pasiftir.
+- *Hybrid Columns* kutusu (aynı sekme, sol alt): kolon gruplarının çelik veya kompozit olması grup grup belirlenir. Ayrıntı: bölüm 7.7.
   - İşaretliyken **yalnızca kolonlar** kompozit olur: tüm üyeleri düşey olan çelik gruplar gömülü kompozit kolondur, kirişler ve diğer gruplar çelik kalır.
   - İşaretli değilse tüm gruplar çeliktir ve maliyet çelik ağırlığıdır (kN).
   - Koşunun kompozit çalıştığı, günlükteki `Info: composite columns (…) in groups [...]` satırından ve sonuçta `[EC …]` ile yazılan kesitlerden anlaşılır.
@@ -501,6 +503,35 @@ Formda *Composite columns* + *Filled tube* seçildiğinde kolon gruplarının ta
 - Program sınırı modelden okur (ya da ayar dosyasındaki `DesignRatioLimit` değerini modele yazar) ve bütün tasarım oranlarını bu sınıra böler. Programın raporladığı "oran" bu yüzden **oran / sınır** değeridir; 1 sınırdır.
 - Böylece programın uygun bulduğu tasarım ETABS'te de uygun görünür. Sürüm 0.4.0'a kadar program 1,0 kullanıyordu: oranı 0,95–1,0 arasında kalan elemanlar ETABS'te "Combined D/C ratio exceeded" / aşırı gerilme olarak görünüyordu.
 - Günlükte `Info: D/C ratio limits (...)` satırı kullanılan değerleri gösterir.
+
+### 7.7 Hibrit kolonlar: kat kat çelik / kompozit
+*Composite columns* işaretliyken *Hybrid: steel / composite per group* seçilirse her kolon grubu ayrı ayrı çelik (W) ya da kompozit (seçili tip: dolgulu tüp veya gömülü) olabilir.
+
+**Grup tipleri** (tablo):
+1. *Read column groups of the model* düğmesi, modeldeki kolon gruplarını (bütün elemanları düşey olan gruplar) gizli bir ETABS ile okur ve kat aralıklarıyla listeler. Model bir kopya üzerinde açılır; yaklaşık bir dakika sürer.
+2. Her grup için *Type* seçilir:
+   - *Optimize* (varsayılan): tipi optimizasyon belirler;
+   - *Steel*: her zaman W profil;
+   - *Composite*: her zaman kompozit.
+
+   Tabloda olmayan kolon grupları *Optimize* sayılır.
+3. Gruplamayı kullanıcı modelde yapar. Program modeldeki tasarım gruplarını olduğu gibi kullanır.
+
+**Geçiş** (*Transition*):
+- **Kolon yığını:** düşey olarak birbirine bağlanan kolon grupları. Program yığınları otomatik bulur ve alttan üste sıralar. 525M'de 2 yığın var: çevre (gruplar 5, 7, 9, 11, 13) ve orta (6, 8, 10, 12, 14).
+- *Per stack (story)*: her yığın için bir **geçiş değişkeni** vardır. Yığının alttan o kadar *Optimize* grubu kompozit, üsttekiler çelik olur. Bu, "belirli kata kadar kompozit, üstü çelik" düzenidir; geçiş grup sınırlarında olur (525M'de 5, 10, 15 veya 20. kat).
+- *Per group*: her *Optimize* grubunun kendi tip değişkeni (çelik / kompozit) vardır; her düzen mümkündür.
+- Sabitlenmiş bir kompozit grup, aynı yığında sabitlenmiş bir çelik grubun üstündeyse günlüğe uyarı yazılır; karar kullanıcınındır.
+
+**Değişkenler:**
+- *Optimize* grubunun iki kesit değişkeni vardır: W kesiti ve kompozit kesit. Etkin tipe göre biri kullanılır; diğeri aramada bilgisini korur.
+- 525M'de değişken sayısı 14'ten 26'ya çıkar (yığın bazında geçişte).
+
+**Geçişte bağlantı:** çelik W kolon alttaki tüpün üzerine oturur. Kontrol: W derinliği ≤ tüp boyu H ve W başlık genişliği ≤ tüp genişliği B. Aynı tip gruplar arasında önceki kolon–kolon kuralları geçerlidir.
+
+**Çıktı:**
+- en iyi tasarımda her grubun kesiti ve tipi (`… [CFT …]`);
+- her yığın için `Stack n (bottom to top …) = composite […], steel […]` satırı.
 
 ## 8. Koşuyu izleme, durdurma ve devam ettirme
 

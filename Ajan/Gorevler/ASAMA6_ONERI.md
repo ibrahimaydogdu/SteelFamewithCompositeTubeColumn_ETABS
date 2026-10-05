@@ -1,7 +1,7 @@
 # Aşama 6 — Hibrit kolon: geçiş katının optimizasyonu (ÖNERİ)
 
 - **Tarih:** 2026-10-05.
-- **Durum:** öneri; kullanıcı onayı bekleniyor. Kod değiştirilmedi.
+- **Durum:** uygulandı (Aşama 6, 0.5.0; `DEGISIKLIKLER.md`). Geçiş hem yığın bazında hem grup bazında seçilebiliyor. Bölüm 3.6'daki ayrı çakışma kontrolü eklenmedi: referans program bunu zaten bildiriyor.
 
 ## 1. Hedef (kullanıcı kararı, 2026-10-03)
 - Kolonun çelik mi kompozit (dolgulu tüp) mi olacağına **kullanıcı da karar verebilmeli, optimizasyon da**.

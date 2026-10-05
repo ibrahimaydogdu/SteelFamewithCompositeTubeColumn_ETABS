@@ -146,7 +146,8 @@ Public Class FramePointStoryGroupStructures_
         Public PMMRatio As Double
         Public DesignSecName As String
         Public DesignSecID As Integer
-        Public IsComposite As Boolean       'encased composite column group (designed by CompositeColumn.vb)
+        Public IsComposite As Boolean       'composite column group (designed by CompositeColumn.vb); hybrid: type of the current design
+        Public IsColumn As Boolean          'all members vertical (column group)
         Public CompositeStrength As Double  'composite group: strength ratio (PMM / shear) only; PMMRatio also includes detailing
         Public CompositeDetailing As Double 'composite group: detailing ratio (As >= 1 % Ag, rho_sr >= 0.4 %)
     End Structure
@@ -180,6 +181,9 @@ Public Class MiscellaneousStructures
         Public Seed As Integer              'random seed of the run
         Public CompositeCode As CompositeCode_  'edition of the composite column check (old backups: 360-16)
         Public CompositeType As CompositeType_  'encased W or filled tube (old backups: encased)
+        Public HybridColumns As Boolean         'every column group steel or composite (HybridColumns.vb)
+        Public TransitionMode As TransitionMode_    'hybrid: transition per stack or type per group
+        Public GroupTypes As List(Of GroupTypeSetting_)     'hybrid: user type per column group (missing: Optimize)
         Public RepairMode As RepairMode_        'old backups: sequential (one re-analysis per repair step)
         Public UseCache As Boolean              'reuse the result of a design vector evaluated before
         Public SkipUnusedCases As Boolean       'do not run analysis cases that no design/drift check uses

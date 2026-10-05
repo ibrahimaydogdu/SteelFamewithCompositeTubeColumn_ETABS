@@ -42,7 +42,7 @@
   - TBDY 2018 Tablo 9.3 süneklik süzgeci eklendi (varsayılan yüksek).
   - Yeni 525M regresyon değerleri: 7564,91 / 1,4580 ve 7068,84 / 1,8032.
 
-## Aşama 6 — Hibrit tasarım
+## Aşama 6 — Hibrit tasarım (2026-10-05, 0.5.0) ✔
 - [x] Karar: hem kullanıcı hem optimizasyon değişkeni; "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu.
 - [x] Öneri yazıldı: `ASAMA6_ONERI.md` (2026-10-05). İçeriği:
   - Steel / Composite / Hybrid modları;
@@ -50,7 +50,11 @@
   - Optimize gruplarda iki kesit değişkeni;
   - geçiş geometrisi kuralı;
   - grup çakışması denetimi.
-- [ ] (?) Bölüm 5'teki sorular. Ölçüm sırasında 460Member'da çakışma bulundu: 20. kat kolonları hem grup 6'da hem grup 11'de.
+- [x] Kararlar alındı (yığın + grup bazında geçiş, kullanıcı gruplaması, ters düzende uyarı, 460 kalıyor, form tablosu) ve uygulandı.
+- [x] Testler:
+  - regresyon birebir aynı;
+  - yığın bazında ve grup bazında ETABS testlerinde tip uyumsuzluğu 0;
+  - uçtan uca test final doğrulamasıyla tamamlandı.
 
 ## Aşama 7 — Uçtan uca koşu
 ## Aşama 8 — (isteğe bağlı) Kompozit döşeme

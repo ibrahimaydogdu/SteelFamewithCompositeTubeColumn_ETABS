@@ -378,8 +378,8 @@ Partial Public Class OptimizationClass
 
     'lighter sections preferred: lightest area / area (math test: 1)
     Private Function AcoHeuristic(ByVal d As Integer, ByVal s As Integer) As Double
-        If ETABSModel Is Nothing OrElse ETABSModel.WSections Is Nothing OrElse s >= ETABSModel.CatalogCount(d) Then Return 1
-        Return ETABSModel.SecArea(d, 0) / Math.Max(ETABSModel.SecArea(d, s), 1.0E-12)
+        If ETABSModel Is Nothing OrElse ETABSModel.WSections Is Nothing OrElse s >= ETABSModel.FullVarCount(d) Then Return 1
+        Return ETABSModel.FullVarArea(d, 0) / Math.Max(ETABSModel.FullVarArea(d, s), 1.0E-12)
     End Function
 
     '___________________________________________________________________________________________________________

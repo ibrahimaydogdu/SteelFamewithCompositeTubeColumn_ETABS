@@ -4,7 +4,7 @@ Imports System.Configuration
 Imports System.Globalization
 
 
-Public Class ETABS_Class
+Partial Public Class ETABS_Class
     Private Const PMM_LOG_MULTIPLIER As Double = 0.5
     Private Const DRIFT_LOG_MULTIPLIER As Double = 0.5
     Private Const UPPER_BOUND_MULTIPLIER As Double = 0.23
@@ -192,6 +192,10 @@ Public Class ETABS_Class
             If (ret <> 0) Then : Errorlogprint("Problem occurred on Function: InitializeCompositeMaterials") : Return ret : End If
             ret = DetectEncasedSections()
             If (ret <> 0) Then : Errorlogprint("Problem occurred on Function: DetectEncasedSections") : Return ret : End If
+            If Hybrid Then
+                ret = InitializeHybrid()
+                If (ret <> 0) Then : Errorlogprint("Problem occurred on Function: InitializeHybrid") : Return ret : End If
+            End If
         End If
         '_____________________________________________________
         'Steel design code (set once)
@@ -778,9 +782,10 @@ Public Class ETABS_Class
                 If Groups(i).GroupDesignProcedure = FramePointStoryGroupStructures_.DesignProcedure_.SteelFrameDesign Then
                     VarIndex(Groups(i).GroupName) = SteelFrameDesignGroupIDs.Count
                     SteelFrameDesignGroupIDs.Add(i)
-                    'column groups (all members vertical) become encased composite columns
-                    Groups(i).IsComposite = FormInfo.CompositeColumns AndAlso FNames.Take(FNumber).All(Function(n) FrameIndex.ContainsKey(n) AndAlso
+                    'column groups (all members vertical) become composite columns (hybrid: InitializeHybrid sets the types)
+                    Groups(i).IsColumn = FNames.Take(FNumber).All(Function(n) FrameIndex.ContainsKey(n) AndAlso
                                                 Frames(FrameIndex(n)).FrameDirc = FramePointStoryGroupStructures_.FrameDirc_.Z)
+                    Groups(i).IsComposite = FormInfo.CompositeColumns AndAlso Groups(i).IsColumn
                 End If
             End If
         Next i
@@ -1313,6 +1318,7 @@ Public Class ETABS_Class
             Next
         Next i
         'form: "Column to Column" / "Beam to Column" unchecked
+        ColumnPairs = New List(Of String())(GeoCons.CtoCList)      'column stacks of the hybrid columns (independent of SkipCtoC)
         If FormInfo.SkipCtoC Then GeoCons.CtoCList.Clear()
         If FormInfo.SkipBtoC Then GeoCons.BtoCList.Clear()
         Errorlogprint("Info: geometric constraints: " & GeoCons.CtoCList.Count & " column-column, " & GeoCons.BtoCList.Count & " beam-column")
@@ -1368,9 +1374,11 @@ Public Class ETABS_Class
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :G1_ConsPMM") : Return ret : End If
 
         Dim N As Integer = WSections.Count
-        ReDim Ub(SteelFrameDesignGroupIDs.Count - 1)
-        ReDim Lb(SteelFrameDesignGroupIDs.Count - 1)
-        For i = 0 To SteelFrameDesignGroupIDs.Count - 1
+        Dim NV As Integer = SteelFrameDesignGroupIDs.Count
+        ReDim Ub(NV - 1)
+        ReDim Lb(NV - 1)
+        ReDim SteelUb(NV - 1) : ReDim SteelLb(NV - 1) : ReDim CompUb(NV - 1) : ReDim CompLb(NV - 1)
+        For i = 0 To NV - 1
             Dim isec As Integer = SteelFrameDesignGroupIDs(i)
             Dim SecID As Integer = Groups(isec).DesignSecID
             If SecID < 0 Then
@@ -1378,28 +1386,37 @@ Public Class ETABS_Class
                 SecID = N \ 2
             End If
             Dim Shift As Double = Math.Log(Groups(isec).PMMRatio + PMM_RATIO_OFFSET) * BOUND_SHIFT_MULTIPLIER * (N - 1)
-            Ub(i) = SecID + CInt(Shift + UPPER_BOUND_MULTIPLIER * (N - 1))
-            Lb(i) = SecID + CInt(Shift - LOWER_BOUND_MULTIPLIER * (N - 1))
-            If Groups(isec).IsComposite Then Lb(i) = 0     'concrete encasement: smaller W sections are feasible
-            If IsTubeVar(i) Then
-                'filled tube: Ub from the first tube with Pno >= Fy As of the W design section, Lb = smallest tube
-                Dim Nt As Integer = Tubes.Count
-                Dim RefP As Double = CompositeMat.Fy * WSections(SecID).Area
-                Dim Eq As Integer = Enumerable.Range(0, Nt).FirstOrDefault(Function(k) CompositeSec(k).Pno() >= RefP)
-                If CompositeSec(Eq).Pno() < RefP Then
-                    Eq = Nt - 1
-                    Errorlogprint("Warning: group " & Groups(isec).GroupName & ": no tube of the catalog reaches Fy As of " & WSections(SecID).SectionName & " (largest tube used as upper bound)")
+            Dim U As Integer = SecID + CInt(Shift + UPPER_BOUND_MULTIPLIER * (N - 1))
+            Dim L As Integer = SecID + CInt(Shift - LOWER_BOUND_MULTIPLIER * (N - 1))
+            U = Math.Min(Math.Max(U, 0), N - 1)
+            'steel W section
+            SteelUb(i) = U : SteelLb(i) = Math.Min(Math.Max(L, 0), U)        'a very large design ratio shifts both bounds up
+            'composite (column groups of the composite modes)
+            If FormInfo.CompositeColumns AndAlso Groups(isec).IsColumn Then
+                If TubeMode Then
+                    'filled tube: Ub from the first tube with Pno >= Fy As of the W design section, Lb = smallest tube
+                    Dim Nt As Integer = Tubes.Count
+                    Dim RefP As Double = CompositeMat.Fy * WSections(SecID).Area
+                    Dim Eq As Integer = Enumerable.Range(0, Nt).FirstOrDefault(Function(k) CompositeSec(k).Pno() >= RefP)
+                    If CompositeSec(Eq).Pno() < RefP Then
+                        Eq = Nt - 1
+                        Errorlogprint("Warning: group " & Groups(isec).GroupName & ": no tube of the catalog reaches Fy As of " & WSections(SecID).SectionName & " (largest tube used as upper bound)")
+                    End If
+                    Dim TShift As Double = Math.Log(Groups(isec).PMMRatio + PMM_RATIO_OFFSET) * BOUND_SHIFT_MULTIPLIER * (Nt - 1)
+                    CompUb(i) = Math.Min(Math.Max(Eq + CInt(TShift + UPPER_BOUND_MULTIPLIER * (Nt - 1)), 0), Nt - 1)
+                Else
+                    CompUb(i) = U       'concrete encasement: smaller W sections are feasible
                 End If
-                Dim TShift As Double = Math.Log(Groups(isec).PMMRatio + PMM_RATIO_OFFSET) * BOUND_SHIFT_MULTIPLIER * (Nt - 1)
-                Ub(i) = Math.Min(Math.Max(Eq + CInt(TShift + UPPER_BOUND_MULTIPLIER * (Nt - 1)), 0), Nt - 1)
-                Lb(i) = 0
-                Continue For
+                CompLb(i) = 0
             End If
-            If Ub(i) > N - 1 Then Ub(i) = N - 1
-            If Ub(i) < 0 Then Ub(i) = 0
-            If Lb(i) < 0 Then Lb(i) = 0
-            If Lb(i) > Ub(i) Then Lb(i) = Ub(i)        'a very large design ratio shifts both bounds up
+            Dim C As Boolean = Groups(isec).IsComposite
+            Ub(i) = If(C, CompUb(i), SteelUb(i)) : Lb(i) = If(C, CompLb(i), SteelLb(i))
         Next i
+        If Hybrid Then
+            BuildHybridLayout()
+        Else
+            GUb = Ub : GLb = Lb
+        End If
         Return ret
     End Function
 
@@ -1480,6 +1497,17 @@ Public Class ETABS_Class
     End Sub
 
     Private Sub EvaluateCore(ByRef Member As OptimizationStructure_.Member_, ByVal Sect_Ind() As Integer, ByRef ret As Integer, ByVal repair As Boolean)
+        'hybrid columns: one section per group (types set from the design vector), written back at the end
+        Dim Full() As Integer = Sect_Ind
+        Sect_Ind = GroupVector(Full)
+        Try
+            EvaluateGroups(Member, Sect_Ind, ret, repair)
+        Finally
+            If Sect_Ind IsNot Full Then EncodeHybrid(Sect_Ind, Full)
+        End Try
+    End Sub
+
+    Private Sub EvaluateGroups(ByRef Member As OptimizationStructure_.Member_, ByVal Sect_Ind() As Integer, ByRef ret As Integer, ByVal repair As Boolean)
         ret = SetAndAnalyze(Sect_Ind, repair)
         If ret <> 0 Then : Errorlogprint("Problem occurred on :SetAndAnalyze") : Exit Sub : End If
 
@@ -1497,7 +1525,7 @@ Public Class ETABS_Class
     'did not change any variable): results and design of the last analysis are still valid.
     Public Function SetAndAnalyze(ByRef Sect_Ind() As Integer, ByVal applyGeometric As Boolean) As Integer
         If applyGeometric Then Call E1_Modifier_Geometric(Sect_Ind)
-        If LastAnalysed IsNot Nothing AndAlso LastAnalysed.SequenceEqual(Sect_Ind) Then
+        If LastAnalysed IsNot Nothing AndAlso LastAnalysed.SequenceEqual(Sect_Ind) AndAlso (Not Hybrid OrElse (LastAnalysedComp IsNot Nothing AndAlso LastAnalysedComp.SequenceEqual(CurrentTypes()))) Then
             Clock("SkippedAnalysis")
             Return 0
         End If
@@ -1509,7 +1537,7 @@ Public Class ETABS_Class
         ret = E2_SetSection(Sect_Ind)
         If ret <> 0 Then Return ret
         ret = E3_Analysis()
-        If ret = 0 Then LastAnalysed = CType(Sect_Ind.Clone(), Integer())
+        If ret = 0 Then LastAnalysed = CType(Sect_Ind.Clone(), Integer()) : LastAnalysedComp = CurrentTypes()
         Return ret
     End Function
 
@@ -1521,7 +1549,7 @@ Public Class ETABS_Class
     'Section index of variable v within [Lb, Ub] that satisfies Fits and is closest to the current one (-1: none);
     'equal distances are decided by the seeded generator
     Private Function NearestFeasible(ByVal v As Integer, ByVal Current As Integer, ByVal Fits As Func(Of Integer, Boolean)) As Integer
-        Dim Lo As Integer = If(Lb IsNot Nothing, Lb(v), 0), Hi As Integer = If(Ub IsNot Nothing, Ub(v), CatalogCount(v) - 1)
+        Dim Lo As Integer = If(GLb IsNot Nothing, GLb(v), 0), Hi As Integer = If(GUb IsNot Nothing, GUb(v), CatalogCount(v) - 1)
         Dim Best As Integer = -1, BestDist As Integer = Integer.MaxValue
         For k = Lo To Hi
             If Not Fits(k) Then Continue For
@@ -1537,16 +1565,12 @@ Public Class ETABS_Class
             Dim GrNameDown As String = CtoC(1)
             Dim UpVar As Integer = VarIndex(CtoC(0))
             Dim DownVar As Integer = VarIndex(GrNameDown)
-            Dim UpArea As Double = SecArea(UpVar, Sect_Ind(UpVar))
-            Dim UpDepth As Double = SecDepth(UpVar, Sect_Ind(UpVar))
-            If UpArea > SecArea(DownVar, Sect_Ind(DownVar)) OrElse UpDepth > SecDepth(DownVar, Sect_Ind(DownVar)) Then
+            If CtoCRatio(UpVar, Sect_Ind(UpVar), DownVar, Sect_Ind(DownVar)) > 1 Then
                 'lower column at least as large as the upper one, not larger than the column(s) below it
                 Dim DownDownVars = GeoCons.CtoCList.Where(Function(c) c(0) = GrNameDown).Select(Function(c) VarIndex(c(1))).ToList()
-                Dim DownDownDepth As Double = If(DownDownVars.Any(), DownDownVars.Min(Function(v) SecDepth(v, Sect_Ind(v))), Double.MaxValue)
-                Dim DownDownArea As Double = If(DownDownVars.Any(), DownDownVars.Min(Function(v) SecArea(v, Sect_Ind(v))), Double.MaxValue)
-                Dim Dv As Integer = DownVar
-                Dim k As Integer = NearestFeasible(DownVar, Sect_Ind(DownVar), Function(s) SecArea(Dv, s) >= UpArea AndAlso SecDepth(Dv, s) >= UpDepth AndAlso
-                                                                                     SecArea(Dv, s) <= DownDownArea AndAlso SecDepth(Dv, s) <= DownDownDepth)
+                Dim Dv As Integer = DownVar, Uv As Integer = UpVar, Uk As Integer = Sect_Ind(UpVar), S0() As Integer = Sect_Ind
+                Dim k As Integer = NearestFeasible(DownVar, Sect_Ind(DownVar), Function(s) CtoCRatio(Uv, Uk, Dv, s) <= 1 AndAlso
+                                                                                     DownDownVars.All(Function(w) CtoCRatio(Dv, s, w, S0(w)) <= 1))
                 If k >= 0 Then Sect_Ind(DownVar) = k
             End If
         Next
@@ -1600,9 +1624,10 @@ Public Class ETABS_Class
             ret = EnsureCompositeSections(Needed)
             If (ret <> 0) Then Return ret
         End If
+        If AssignedComp Is Nothing OrElse AssignedComp.Length <> SteelFrameDesignGroupIDs.Count Then ReDim AssignedComp(SteelFrameDesignGroupIDs.Count - 1)
         For i = 0 To SteelFrameDesignGroupIDs.Count - 1
-            If Assigned(i) = Sect_Ind(i) Then Continue For
             Dim isec As Integer = SteelFrameDesignGroupIDs(i)
+            If Assigned(i) = Sect_Ind(i) AndAlso (Not Hybrid OrElse AssignedComp(i) = Groups(isec).IsComposite) Then Continue For
             Dim PropName As String = If(IsTubeVar(i), Nothing, WSections(Sect_Ind(i)).SectionName)
             If CompositeActive AndAlso Groups(isec).IsComposite Then PropName = CompositeSectionName(Sect_Ind(i))
             ret = SapModel.FrameObj.SetSection(Groups(isec).GroupName, PropName, ETABSv1.eItemType.Group)
@@ -1611,8 +1636,13 @@ Public Class ETABS_Class
                 'General section: designed by CompositeColumn.vb, not by the ETABS steel design
                 ret = SapModel.FrameObj.SetDesignProcedure(Groups(isec).GroupName, NO_DESIGN, ETABSv1.eItemType.Group)
                 If (ret <> 0) Then : Errorlogprint("Problem occurred on :FrameObj.SetDesignProcedure " & Groups(isec).GroupName) : Return ret : End If
+            ElseIf Hybrid AndAlso AssignedComp(i) Then
+                'hybrid group back to steel: ETABS steel design again
+                ret = SapModel.FrameObj.SetDesignProcedure(Groups(isec).GroupName, CInt(FramePointStoryGroupStructures_.DesignProcedure_.SteelFrameDesign), ETABSv1.eItemType.Group)
+                If (ret <> 0) Then : Errorlogprint("Problem occurred on :FrameObj.SetDesignProcedure " & Groups(isec).GroupName) : Return ret : End If
             End If
             Assigned(i) = Sect_Ind(i)
+            AssignedComp(i) = CompositeActive AndAlso Groups(isec).IsComposite
         Next i
         Iter += 1
         Return ret
@@ -1883,18 +1913,25 @@ Public Class ETABS_Class
     'Final ETABS guard: composite groups failing the ETABS composite design move to the next larger section (by area,
     'within Ub) that keeps the geometric constraints with the neighbouring columns and the connected beams (the next
     'section by area may be less deep). Returns the number of changed variables.
-    Public Function StepUpETABSFailures(ByRef Sect_Ind() As Integer) As Integer
+    Public Function StepUpETABSFailures(ByRef Vec() As Integer) As Integer
+        Dim Sect_Ind() As Integer = GroupVector(Vec)
+        Dim Changed As Integer = StepUpGroups(Sect_Ind)
+        If Sect_Ind IsNot Vec Then EncodeHybrid(Sect_Ind, Vec)
+        Return Changed
+    End Function
+
+    Private Function StepUpGroups(ByRef Sect_Ind() As Integer) As Integer
         Dim Changed As Integer = 0
         For Each kv In ETABSRatioByVar
             If kv.Value <= 1 Then Continue For
             Dim v As Integer = kv.Key
-            If Sect_Ind(v) >= Ub(v) Then
+            If Sect_Ind(v) >= GUb(v) Then
                 Errorlogprint("Warning: group " & Groups(SteelFrameDesignGroupIDs(v)).GroupName & " fails the ETABS composite design (" & kv.Value.ToString("F3", CultureInfo.InvariantCulture) & ") at its upper bound")
                 Continue For
             End If
             Dim Current() As Integer = Sect_Ind
             Dim [Next] As Integer = -1
-            For k = Sect_Ind(v) + 1 To Ub(v)
+            For k = Sect_Ind(v) + 1 To GUb(v)
                 If GeometryFits(v, k, Current) Then [Next] = k : Exit For
             Next
             If [Next] < 0 Then
@@ -1912,11 +1949,10 @@ Public Class ETABS_Class
     'Section k for variable v with the other variables of Sect_Ind: column-column (area and depth between the upper and
     'the lower column) and beam-column (beam flange within the connection gap) constraints
     Private Function GeometryFits(ByVal v As Integer, ByVal k As Integer, ByVal Sect_Ind() As Integer) As Boolean
-        Dim A As Double = SecArea(v, k), D As Double = SecDepth(v, k)
         For Each CtoC In GeoCons.CtoCList
             Dim UpVar As Integer = VarIndex(CtoC(0)), DownVar As Integer = VarIndex(CtoC(1))
-            If UpVar = v AndAlso (A > SecArea(DownVar, Sect_Ind(DownVar)) OrElse D > SecDepth(DownVar, Sect_Ind(DownVar))) Then Return False
-            If DownVar = v AndAlso (A < SecArea(UpVar, Sect_Ind(UpVar)) OrElse D < SecDepth(UpVar, Sect_Ind(UpVar))) Then Return False
+            If UpVar = v AndAlso CtoCRatio(v, k, DownVar, Sect_Ind(DownVar)) > 1 Then Return False
+            If DownVar = v AndAlso CtoCRatio(UpVar, Sect_Ind(UpVar), v, k) > 1 Then Return False
         Next
         For Each BtoC In GeoCons.BtoCList
             If VarIndex(BtoC(0)) <> v Then Continue For
@@ -1926,7 +1962,7 @@ Public Class ETABS_Class
     End Function
 
     Private Sub StepVariable(ByRef Sect_Ind() As Integer, ByVal v As Integer, ByVal StepSize As Integer)
-        Sect_Ind(v) = Math.Min(Math.Max(Sect_Ind(v) + StepSize, Lb(v)), Ub(v))
+        Sect_Ind(v) = Math.Min(Math.Max(Sect_Ind(v) + StepSize, GLb(v)), GUb(v))
     End Sub
 
     'F2 / F4 / G2 return True only if a design variable really changed (a step can round to 0 or be clipped at Ub)
@@ -2134,8 +2170,7 @@ Public Class ETABS_Class
         ETABS_print.ColumnToColumnGeometricRatio = New List(Of Double)
         For Each CtoC In GeoCons.CtoCList
             Dim U As Integer = VarIndex(CtoC(0)), Dn As Integer = VarIndex(CtoC(1))
-            ETABS_print.ColumnToColumnGeometricRatio.Add(Math.Max(Math.Max(SecArea(U, Sect_Ind(U)) / SecArea(Dn, Sect_Ind(Dn)),
-                                                                           SecDepth(U, Sect_Ind(U)) / SecDepth(Dn, Sect_Ind(Dn))), 1))
+            ETABS_print.ColumnToColumnGeometricRatio.Add(CtoCRatio(U, Sect_Ind(U), Dn, Sect_Ind(Dn)))
         Next
 
         ETABS_print.BeamToColumnGeometricRatio = New List(Of Double)
@@ -2176,6 +2211,7 @@ Public Class ETABS_Class
 
     'Cost of each design group (same quantities and unit costs as CostStProfile) and a total row
     Public Function CostBreakdown(ByVal Sect_Ind() As Integer) As List(Of CostItem_)
+        Sect_Ind = GroupVector(CType(Sect_Ind.Clone(), Integer()))
         Dim L As New List(Of CostItem_)
         Dim Composite As Boolean = FormInfo.CompositeColumns AndAlso CompositeSettings IsNot Nothing
         Dim uS As Double = If(Composite, CompositeSettings.SteelUnitCost, 1)

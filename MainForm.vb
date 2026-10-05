@@ -201,6 +201,8 @@ Public Class MainForm
         If DriftCombos.SelectedIndex < 0 Then DriftCombos.SelectedIndex = MiscellaneousStructures.DriftComboMode_.LateralCasesOnly
         If CompositeCodeBox.SelectedIndex < 0 Then CompositeCodeBox.SelectedIndex = CompositeCode_.AISC360_22
         If CompositeTypeBox.SelectedIndex < 0 Then CompositeTypeBox.SelectedIndex = CompositeType_.FilledTube
+        If TransitionBox.SelectedIndex < 0 Then TransitionBox.SelectedIndex = TransitionMode_.PerStack
+        InitGroupGrid()
         If RepairModeBox.SelectedIndex < 0 Then RepairModeBox.SelectedIndex = MiscellaneousStructures.RepairMode_.Combined
         'HS defaults of the old form (PAR 0.6, HMCR 0.9, Dynamic / Adaptive) come from the catalog
         UiOpt.Params = New List(Of MethodParam_)
@@ -217,6 +219,68 @@ Public Class MainForm
         CostRebarBox.Text = Num(Defaults.RebarUnitCost)
         CostConcreteBox.Text = Num(Defaults.ConcreteUnitCost)
         CostFormworkBox.Text = Num(Defaults.FormworkUnitCost)
+    End Sub
+
+    '_______________________________________________________________________________________________
+    'Hybrid columns: type of every column group (Optimize / Steel / Composite), groups read from the model
+    Private Shared ReadOnly GroupTypeNames() As String = {"Optimize", "Steel", "Composite"}
+
+    Private Sub InitGroupGrid()
+        If GroupTypeGrid.Columns.Count > 0 Then Return
+        GroupTypeGrid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+        GroupTypeGrid.Columns.Add(New DataGridViewTextBoxColumn With {.Name = "Group", .HeaderText = "Grp", .ReadOnly = True, .FillWeight = 18})
+        GroupTypeGrid.Columns.Add(New DataGridViewTextBoxColumn With {.Name = "Stories", .HeaderText = "Stories", .ReadOnly = True, .FillWeight = 34})
+        Dim T As New DataGridViewComboBoxColumn With {.Name = "Type", .HeaderText = "Type", .FillWeight = 48, .FlatStyle = FlatStyle.Flat}
+        T.Items.AddRange(GroupTypeNames)
+        GroupTypeGrid.Columns.Add(T)
+    End Sub
+
+    'Rows: groups with their stories; the type of a group already in the table is kept
+    Private Sub FillGroupGrid(ByVal Infos As IEnumerable(Of ColumnGroupInfo_), ByVal Types As IEnumerable(Of GroupTypeSetting_))
+        InitGroupGrid()
+        Dim Keep As New Dictionary(Of String, String)
+        For Each t In If(Types, New GroupTypeSetting_() {})
+            If t IsNot Nothing AndAlso t.GroupName IsNot Nothing Then Keep(t.GroupName) = GroupTypeNames(CInt(t.Type))
+        Next
+        GroupTypeGrid.Rows.Clear()
+        For Each g In Infos
+            Dim Tp As String = Nothing
+            If Not Keep.TryGetValue(g.Name, Tp) Then Tp = GroupTypeNames(0)
+            GroupTypeGrid.Rows.Add(g.Name, g.Stories, Tp)
+        Next
+    End Sub
+
+    Private Function GroupTypesFromGrid() As List(Of GroupTypeSetting_)
+        Dim L As New List(Of GroupTypeSetting_)
+        For Each r As DataGridViewRow In GroupTypeGrid.Rows
+            Dim Name As String = CStr(r.Cells("Group").Value)
+            If String.IsNullOrWhiteSpace(Name) Then Continue For
+            Dim k As Integer = Array.IndexOf(GroupTypeNames, CStr(r.Cells("Type").Value))
+            L.Add(New GroupTypeSetting_ With {.GroupName = Name, .Type = CType(Math.Max(k, 0), GroupColumnType_)})
+        Next
+        Return L
+    End Function
+
+    'column groups of the selected model (hidden ETABS on a copy, about a minute)
+    Private Sub ReadGroupsButton_Click(sender As Object, e As EventArgs) Handles ReadGroupsButton.Click
+        If Not File.Exists(ModelFileBox.Text) Then : MsgBox("Select the ETABS model first") : Return : End If
+        Dim ModelFile As String = ModelFileBox.Text
+        Dim Old As List(Of GroupTypeSetting_) = GroupTypesFromGrid()
+        ReadGroupsButton.Enabled = False
+        ReadGroupsButton.Text = "Reading the model (ETABS) ..."
+        Dim T As New Threading.Thread(Sub()
+                                          Dim Msg As String = Nothing
+                                          Dim L As List(Of ColumnGroupInfo_) = ETABS_Class.ReadColumnGroups(ModelFile, Msg)
+                                          BeginInvoke(Sub()
+                                                          FillGroupGrid(L, Old)
+                                                          ReadGroupsButton.Text = "Read column groups of the model"
+                                                          ReadGroupsButton.Enabled = True
+                                                          If L.Count = 0 Then MsgBox(Msg)
+                                                      End Sub)
+                                      End Sub)
+        T.SetApartmentState(Threading.ApartmentState.STA)
+        T.IsBackground = True
+        T.Start()
     End Sub
 
     'Filled tubes have no rebar and no formwork: their unit costs are not used
@@ -493,6 +557,10 @@ Public Class MainForm
                 MsgBox("Design Code Steel is not defined correctly")
                 Durdur = True
             End If
+            If HybridBox.Checked AndAlso Not CompositeColumns.Checked Then
+                MsgBox("Hybrid columns need ""Composite columns"" (steel or composite per group)")
+                Durdur = True
+            End If
             If CompositeColumns.Checked Then
                 Dim CostBoxes() As TextBox = {CostSteelBox, CostRebarBox, CostConcreteBox, CostFormworkBox}
                 If CostBoxes.Any(Function(b) Not IsValidNumber(b.Text) OrElse ToDbl(b.Text) < 0) OrElse CostBoxes.All(Function(b) ToDbl(b.Text) = 0) Then
@@ -535,6 +603,9 @@ Public Class MainForm
         FormInfo.CompositeColumns = CompositeColumns.Checked
         FormInfo.CompositeCode = Math.Max(CompositeCodeBox.SelectedIndex, 0)
         FormInfo.CompositeType = CType(Math.Max(CompositeTypeBox.SelectedIndex, 0), CompositeType_)
+        FormInfo.HybridColumns = HybridBox.Checked
+        FormInfo.TransitionMode = CType(Math.Max(TransitionBox.SelectedIndex, 0), TransitionMode_)
+        FormInfo.GroupTypes = GroupTypesFromGrid()
         FormInfo.RepairMode = Math.Max(RepairModeBox.SelectedIndex, 0)
         FormInfo.UseCache = ResultCache.Checked
         FormInfo.RestartEvery = CInt(ToDbl(RestartBox.Text))
@@ -575,6 +646,9 @@ Public Class MainForm
         CompositeColumns.Checked = FormInfo.CompositeColumns
         CompositeCodeBox.SelectedIndex = FormInfo.CompositeCode
         CompositeTypeBox.SelectedIndex = FormInfo.CompositeType
+        HybridBox.Checked = FormInfo.HybridColumns
+        TransitionBox.SelectedIndex = FormInfo.TransitionMode
+        If FormInfo.GroupTypes IsNot Nothing Then FillGroupGrid(FormInfo.GroupTypes.Select(Function(t) New ColumnGroupInfo_ With {.Name = t.GroupName, .Stories = ""}), FormInfo.GroupTypes)
         RepairModeBox.SelectedIndex = FormInfo.RepairMode
         ResultCache.Checked = FormInfo.UseCache
         RestartBox.Text = FormInfo.RestartEvery.ToString()
@@ -904,10 +978,16 @@ Public Class MainForm
         Dim xmlnode As XmlNodeList = xmldoc.GetElementsByTagName("GlobalBestPrint")
         If xmlnode.Count = 0 Then : ETABSModel.Errorlogprint("No GlobalBestPrint in " & OutputFile) : ret = -1 : Return Sect_ID : End If
         Dim ByGroup As New Dictionary(Of String, String)
+        Dim CompGroups As New HashSet(Of String)
         For Each item As XmlNode In xmlnode(0).ChildNodes
             Dim parts() As String = item.InnerText.Split(":".ToCharArray(), 2)
-            If parts.Length = 2 Then ByGroup(parts(0).Trim()) = parts(1).Trim().Split(" "c)(0)
+            If parts.Length = 2 Then
+                ByGroup(parts(0).Trim()) = parts(1).Trim().Split(" "c)(0)
+                If parts(1).Contains("[CFT ") OrElse parts(1).Contains("[CFP ") OrElse parts(1).Contains("[EC ") Then CompGroups.Add(parts(0).Trim())
+            End If
         Next
+        'hybrid columns: the type of every group comes from the output file
+        If ETABSModel.Hybrid Then ETABSModel.SetGroupTypes(ETABSModel.SteelFrameDesignGroupIDs.Select(Function(id) CompGroups.Contains(ETABSModel.Groups(id).GroupName)).ToArray())
         For j = 0 To ETABSModel.SteelFrameDesignGroupIDs.Count - 1
             Dim G As String = ETABSModel.Groups(ETABSModel.SteelFrameDesignGroupIDs(j)).GroupName
             Dim Sname As String = Nothing

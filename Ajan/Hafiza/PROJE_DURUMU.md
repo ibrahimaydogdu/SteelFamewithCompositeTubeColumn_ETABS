@@ -1,6 +1,6 @@
 # Proje Durumu
 
-**Son güncelleme:** 2026-10-04, Aşama 5.1 (D/C sınırı, deprem süzgeci, 0.4.1).
+**Son güncelleme:** 2026-10-05, Aşama 6 (hibrit kolonlar, 0.5.0).
 
 ## Kimlik
 
@@ -22,6 +22,7 @@
 | Tüp kataloğu (Aşama 5) | kütüphanedeki kare HSS (≥ 300 mm) + yapma kare kutular 400–1000 mm; boru ve dikdörtgen kutu kapalı; beton modelden |
 | Gömülü kesit | seçenek olarak kalıyor; tek program, formda tip seçimi |
 | D/C oranı sınırı (Aşama 5.1) | modelin ETABS tercihinden (`DCLimit`, 0,95); oranlar sınıra bölünür. `DesignRatioLimit` ile sabitlenebilir. |
+| Hibrit kolonlar (Aşama 6) | form tablosunda grup tipi (Optimize / Steel / Composite); geçiş yığın bazında (varsayılan) ya da grup bazında; gruplamayı kullanıcı modelde yapar |
 | Deprem süzgeci (Aşama 5.1) | TBDY 2018 Tablo 9.3 kompozit satırları; varsayılan yüksek süneklik (katalog 100 kesit) |
 | Kompozit döşeme | isteğe bağlı, sonra ele alınacak |
 | Depo adındaki "Tube" | kolonların tüp olmasını anlatıyor (çekirdek perde değil); ad kalıyor |

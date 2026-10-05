@@ -339,10 +339,7 @@ Partial Public Class OptimizationClass
             Else
 
 
-                For i = 0 To ETABSModel.SteelFrameDesignGroupIDs.Count - 1
-                    Dim isec As Integer = ETABSModel.SteelFrameDesignGroupIDs(i)
-                    GlobalBestPrint.Add(ETABSModel.Groups(isec).GroupName & ": " & ETABSModel.DescribeVariable(i, GlobalBest.DesignVariables(i)))
-                Next
+                GlobalBestPrint.AddRange(ETABSModel.DescribeDesign(CType(GlobalBest.DesignVariables.Clone(), Integer())))
             End If
         End If
     End Sub
@@ -479,8 +476,7 @@ Partial Public Class OptimizationClass
                 ETABSCompositeCheck = ETABSModel.ETABS_print.ETABSCompositeCheck
                 'cost breakdown and sections of the final design (= the best design unless the ETABS guard changed it)
                 CostBreakdown = ETABSModel.CostBreakdown(Final.DesignVariables)
-                FinalDesignPrint = Enumerable.Range(0, Final.DesignVariables.Length).Select(Function(v) ETABSModel.Groups(ETABSModel.SteelFrameDesignGroupIDs(v)).GroupName & ": " &
-                                                                                            ETABSModel.DescribeVariable(v, Final.DesignVariables(v))).ToList()
+                FinalDesignPrint = ETABSModel.DescribeDesign(CType(Final.DesignVariables.Clone(), Integer()))
                 Dim f As String = FormInfo.FileList.ETABSFile
                 Dim SaveRet As Integer = ETABSModel.SapModel.File.Save(Path.Combine(Path.GetDirectoryName(f), Path.GetFileNameWithoutExtension(f) & "_best.EDB"))
                 If SaveRet <> 0 Then LogError("Problem occurred in :File.Save (_best.EDB)")
