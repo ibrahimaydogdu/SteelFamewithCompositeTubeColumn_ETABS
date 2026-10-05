@@ -7,6 +7,7 @@
 #   -Parallel 3      aynı anda çalışacak koşu (ETABS) sayısı
 #   -StartDelay 120  koşuların başlangıç aralığı [s]
 #   -Resume          sonucu olmayan koşular yedekten (<ad>.result.backup.xml) devam eder
+#                    (sonuçsuz biten koşu her durumda bir kez yedekten yeniden başlatılır)
 #   -SummaryOnly     koşu yapmaz, yalnızca summary.csv yazar
 #
 # Runs CSV sütunları: Name, Model, Method, Mode, MaxAnalyses, MemorySize, Seed[, Transition, AbcLimit]
@@ -78,24 +79,37 @@ foreach ($r in $List) {
     $Jobs += [pscustomobject]@{ Name = $r.Name; Dir = $Dir; Settings = $Settings; Result = $Result; Row = $r }
 }
 
-# ---- koşular: en fazla $Parallel süreç, $StartDelay aralıkla
+# ---- koşular: sistemde en fazla $Parallel FrameSap2000 süreci (başka bir betiğin başlattıkları da sayılır),
+#      $StartDelay aralıkla. Başka bir süreçte çalışan koşu beklenir; sonuçsuz biten koşu yedeğinden bir kez yeniden başlatılır.
+function Get-Batches {
+    @(Get-CimInstance Win32_Process -Filter "Name='FrameSap2000.exe'" | ForEach-Object { [string]$_.CommandLine })
+}
 if (-not $SummaryOnly) {
-    $Queue = [Collections.Generic.Queue[object]]::new()
-    foreach ($j in $Jobs) { if (-not (Test-Path $j.Result)) { $Queue.Enqueue($j) } }
-    $Running = @()
+    $Pending = [Collections.Generic.List[object]]::new()
+    foreach ($j in $Jobs) { if (-not (Test-Path $j.Result)) { $Pending.Add($j) } }
+    $Tries = @{}
     $LastStart = [datetime]::MinValue
-    while ($Queue.Count -gt 0 -or $Running.Count -gt 0) {
-        $Running = @($Running | Where-Object { -not $_.Proc.HasExited })
-        if ($Queue.Count -gt 0 -and $Running.Count -lt $Parallel -and ((Get-Date) - $LastStart).TotalSeconds -ge $StartDelay) {
-            $j = $Queue.Dequeue()
-            $a = @('/batch', ('"' + $j.Settings + '"'))
-            if ($Resume -and (Test-Path ([IO.Path]::ChangeExtension($j.Result, '.backup.xml')))) { $a += '/resume' }
-            $p = Start-Process -FilePath $Exe -ArgumentList $a -WorkingDirectory (Split-Path -Parent $Exe) -PassThru
-            Write-Output ("{0:HH:mm:ss} başladı: {1} (pid {2})" -f (Get-Date), $j.Name, $p.Id)
-            $Running += [pscustomobject]@{ Job = $j; Proc = $p }
-            $LastStart = Get-Date
+    while ($Pending.Count -gt 0) {
+        $Cmd = Get-Batches
+        foreach ($j in @($Pending)) {
+            $Busy = @($Cmd | Where-Object { $_ -like ('*' + $j.Settings + '*') }).Count -gt 0
+            if (-not $Busy -and (Test-Path $j.Result)) { $Pending.Remove($j) | Out-Null; Write-Output ("{0:HH:mm:ss} bitti: {1}" -f (Get-Date), $j.Name) }
+            elseif (-not $Busy -and $Tries[$j.Name] -ge 2) { $Pending.Remove($j) | Out-Null; Write-Output ("{0:HH:mm:ss} sonuçsuz bırakıldı: {1}" -f (Get-Date), $j.Name) }
         }
-        Start-Sleep -Seconds 15
+        $Free = $Parallel - $Cmd.Count
+        if ($Free -gt 0 -and ((Get-Date) - $LastStart).TotalSeconds -ge $StartDelay) {
+            $j = $Pending | Where-Object { $s = $_.Settings; @($Cmd | Where-Object { $_ -like ('*' + $s + '*') }).Count -eq 0 } | Select-Object -First 1
+            if ($j) {
+                $a = @('/batch', ('"' + $j.Settings + '"'))
+                $Bak = [IO.Path]::ChangeExtension($j.Result, '.backup.xml')
+                if (($Resume -or $Tries[$j.Name] -ge 1) -and (Test-Path $Bak)) { $a += '/resume' }
+                $p = Start-Process -FilePath $Exe -ArgumentList $a -WorkingDirectory (Split-Path -Parent $Exe) -PassThru
+                $Tries[$j.Name] = 1 + [int]$Tries[$j.Name]
+                Write-Output ("{0:HH:mm:ss} başladı: {1} (pid {2}{3})" -f (Get-Date), $j.Name, $p.Id, $(if ($a -contains '/resume') { ', yedekten' } else { '' }))
+                $LastStart = Get-Date
+            }
+        }
+        Start-Sleep -Seconds 30
     }
     Write-Output ("{0:HH:mm:ss} bütün koşular bitti" -f (Get-Date))
 }

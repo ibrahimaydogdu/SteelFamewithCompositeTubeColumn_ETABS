@@ -267,6 +267,10 @@ Partial Public Class ETABS_Class
             Directory.CreateDirectory(WorkDir)
             WorkFile = Path.Combine(WorkDir, Path.GetFileName(SourceFile))
             File.Copy(SourceFile, WorkFile)
+            'the copy keeps the time of the source: set it to now, otherwise another run starting before the first
+            'analysis would take the folder for a stale one; the owner file protects it as long as this process lives
+            File.SetLastWriteTime(WorkFile, Date.Now)
+            File.WriteAllText(Path.Combine(WorkDir, OWNER_FILE), CStr(Process.GetCurrentProcess().Id))
             Errorlogprint("Info: working copy " & WorkFile)
             Return 0
         Catch ex As Exception
@@ -278,10 +282,12 @@ Partial Public Class ETABS_Class
     'Working folders of interrupted runs (power failure, killed process) stay behind. A running search writes its
     'folder at every analysis, so folders not written for STALE_WORKDIR_DAYS days are removed.
     Private Const STALE_WORKDIR_DAYS As Double = 2
+    Private Const OWNER_FILE As String = "owner.pid"     'process id of the run that uses the folder
     Private Sub DeleteStaleWorkDirs(ByVal Root As String)
         If Not Directory.Exists(Root) Then Return
         For Each d In Directory.GetDirectories(Root)
             Try
+                If OwnerAlive(d) Then Continue For
                 Dim Last As Date = New DirectoryInfo(d).GetFiles("*", SearchOption.AllDirectories).Select(Function(f) f.LastWriteTime).DefaultIfEmpty(Directory.GetLastWriteTime(d)).Max()
                 If (Date.Now - Last).TotalDays < STALE_WORKDIR_DAYS Then Continue For
                 Directory.Delete(d, True)
@@ -291,6 +297,18 @@ Partial Public Class ETABS_Class
             End Try
         Next
     End Sub
+
+    'True if the program process that created the working folder still runs (parallel runs share the root folder)
+    Private Shared Function OwnerAlive(ByVal Dir As String) As Boolean
+        Try
+            Dim f As String = Path.Combine(Dir, OWNER_FILE)
+            If Not File.Exists(f) Then Return False
+            Dim P As Process = Process.GetProcessById(CInt(File.ReadAllText(f).Trim()))
+            Return P.ProcessName = Process.GetCurrentProcess().ProcessName AndAlso P.StartTime <= File.GetLastWriteTime(f).AddSeconds(5)
+        Catch
+            Return False
+        End Try
+    End Function
 
     'ETABS may hold the analysis files for a moment after exit: retry, never fail the run
     Private Sub DeleteWorkDir()

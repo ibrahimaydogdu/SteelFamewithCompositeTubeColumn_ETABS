@@ -39,7 +39,25 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
   - Koşu sürdü ama yalnızca uyarı verdi.
   - Düzeltme: günlük denetimi ve betikteki yol sınırı.
   - Test: 260 karakterlik yolda program ETABS açmadan çıkış kodu 1 ile kapandı; betik yolu reddetti.
-- **Uzun koşular:** 2026-10-05 21:18'de başladı (`D:\Kosular\Asama7`). Sonuçlar bu bölüme eklenecek.
+- **Paralel koşu hatası (uzun koşularda bulundu, düzeltildi):**
+  - Her koşu açılışta 2 günden eski çalışma klasörlerini (`%TEMP%\SteelFrameOpt`) siliyor (`DeleteStaleWorkDirs`). Klasörün yaşı dosyaların son yazma tarihinden ölçülüyordu.
+  - `File.Copy` ise kopyaya kaynak modelin eski tarihini taşıyor. Bu yüzden başka bir koşu, henüz ilk analizini yazmamış bir koşunun klasörünü eski sanıp sildi.
+  - Sonuç: SSO_Steel 99. analizde, ETABS'in yeniden başlatılması sırasında durdu (`File.Save (restart)`). SSO_Composite ve HS_Steel'in klasörleri de silindi.
+  - Düzeltme (`ETABSClass.vb`):
+    - kopyanın tarihi şimdiye ayarlanıyor;
+    - klasöre sahip sürecin numarası yazılıyor (`owner.pid`);
+    - sahibi çalışan bir klasör hiçbir zaman silinmiyor (`OwnerAlive`: süreç adı ve başlangıç zamanı da denetleniyor).
+  - Birim testi (yansıma ile): canlı sahipli eski klasör korundu; ölü ya da sahipsiz eski klasör silindi; yeni klasör korundu.
+- `RunBatch.ps1` güncellemesi:
+  - paralel sınır sistemdeki bütün `FrameSap2000` süreçlerine göre sayılıyor;
+  - başka bir süreçte çalışan koşu bekleniyor;
+  - sonuçsuz biten koşu yedeğinden bir kez yeniden başlatılıyor.
+
+  Böylece çalışan koşulara dokunmadan yönetici yenilenebildi.
+- **Uzun koşular:** 2026-10-05 21:18'de başladı (`D:\Kosular\Asama7`).
+  - 22:35'te düzeltilmiş exe ile devam edildi: SSO_Steel ve SSO_Composite yedeğinden, HS_Steel baştan.
+  - SSO_Hybrid eski exe ile sürüyor; klasörü etkilenmedi.
+  - Sonuçlar bu bölüme eklenecek.
 
 ---
 
