@@ -44,7 +44,13 @@
 
 ## Aşama 6 — Hibrit tasarım
 - [x] Karar: hem kullanıcı hem optimizasyon değişkeni; "belirli kata kadar kompozit, üstü çelik" geçişinin optimizasyonu.
-- [ ] Tasarımı (geçiş katı değişkeni, grup tipi Steel/Composite/Optimize) onaya sun.
+- [x] Öneri yazıldı: `ASAMA6_ONERI.md` (2026-10-05). İçeriği:
+  - Steel / Composite / Hybrid modları;
+  - yığın başına geçiş değişkeni;
+  - Optimize gruplarda iki kesit değişkeni;
+  - geçiş geometrisi kuralı;
+  - grup çakışması denetimi.
+- [ ] (?) Bölüm 5'teki sorular. Ölçüm sırasında 460Member'da çakışma bulundu: 20. kat kolonları hem grup 6'da hem grup 11'de.
 
 ## Aşama 7 — Uçtan uca koşu
 ## Aşama 8 — (isteğe bağlı) Kompozit döşeme
