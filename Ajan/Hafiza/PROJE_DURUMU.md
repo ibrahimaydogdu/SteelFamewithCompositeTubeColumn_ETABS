@@ -4,7 +4,7 @@
 
 ## Kimlik
 
-- **Konu:** Çelik çerçevelerin optimizasyonu, **hibrit kompozit kolon** yaklaşımıyla. Kolon grupları ayrı ayrı çelik (W) veya **dolgulu tüp** seçilebilir; dolgulu tüp, çelik kutu (CFT) ya da boru (CFP) içine beton doldurularak elde edilir. Kirişler W profili. Kompozit döşeme isteğe bağlı.
+- **Konu:** Çelik çerçevelerin optimizasyonu, **hibrit kompozit kolon** yaklaşımıyla. Kolon grupları ayrı ayrı çelik (W) veya **dolgulu tüp** seçilebilir; dolgulu tüp, çelik kutu (CFT) ya da boru (CFP) içine beton doldurularak elde edilir. Kirişler W profili. Kompozit döşeme bu programın kapsamı dışında; proje sonunda ayrı program olarak önerilecek.
 - **Ortam:** ETABS 22.6, VB.NET, .NET Framework 4.7.2, Visual Studio 2026.
 - **Klasör:** `...\MVS2010\ETABS\SteelFamewithCompositeTubeColumn_ETABS`.
 - **Depo:** github.com/ibrahimaydogdu/SteelFamewithCompositeTubeColumn_ETABS (main).
@@ -24,7 +24,7 @@
 | D/C oranı sınırı (Aşama 5.1) | modelin ETABS tercihinden (`DCLimit`, 0,95); oranlar sınıra bölünür. `DesignRatioLimit` ile sabitlenebilir. |
 | Hibrit kolonlar (Aşama 6) | form tablosunda grup tipi (Optimize / Steel / Composite); geçiş yığın bazında (varsayılan) ya da grup bazında; gruplamayı kullanıcı modelde yapar |
 | Deprem süzgeci (Aşama 5.1) | TBDY 2018 Tablo 9.3 kompozit satırları; varsayılan yüksek süneklik (katalog 100 kesit) |
-| Kompozit döşeme | isteğe bağlı, sonra ele alınacak |
+| Kompozit döşeme | bu programa eklenmeyecek; proje sonunda ayrı program önerisi (karar 2026-10-06) |
 | Depo adındaki "Tube" | kolonların tüp olmasını anlatıyor (çekirdek perde değil); ad kalıyor |
 | Eski iskelet kod | kaldırıldı (Aşama 2) |
 | Lisans | ücretsiz → MIT |

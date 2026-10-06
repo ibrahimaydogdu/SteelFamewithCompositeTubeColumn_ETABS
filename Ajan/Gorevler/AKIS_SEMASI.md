@@ -51,8 +51,8 @@ Aşama 5  Dolgulu tüp kolon (CFT/CFP)                                         [
 Aşama 6  Hibrit tasarım: kolon grubu başına çelik/kompozit                    [bitti]
    │       - seçenekler: (a) grup başına kullanıcı seçimi; (b) tip değişkeni optimizasyona eklenir
    │       - maliyet: çelik + beton (+ kalıp yok, tüp kalıp işlevi görür)
-Aşama 7  Uçtan uca koşu: SSO + diğer yöntemler, final ETABS doğrulaması, Excel
-Aşama 8  (isteğe bağlı) Kompozit döşeme tasarımı
+Aşama 7  Uçtan uca koşu: SSO + diğer yöntemler, final ETABS doğrulaması, Excel  [bitti]
+Aşama 8  Kompozit döşeme: atlandı; proje sonunda ayrı program önerisi          [karar 2026-10-06]
 Aşama 9  Kılavuz, README, dağıtım paketi
 Gelecek  Model oluşturucu program (kullanıcının planı, 2026-10-05; bkz. Bölüm 5)
 ```
@@ -89,7 +89,7 @@ Her aşamada izlenen adımlar:
    - *Optimize* gruplar kolon hatlarına ve kata göre sıralanır. Her hat için bir **geçiş katı değişkeni** k: k'nın altındaki gruplar kompozit, üstündekiler çelik (k = 0: tümü çelik, k = en üst: tümü kompozit). Böylece "alt katlar kompozit, üst katlar çelik" kurgusu tek değişkenle aranır.
    - Kesit değişkeni grup tipine göre W havuzundan ya da tüp havuzundan seçilir.
    - Maliyet: çelik + beton (tüp kalıp görevi gördüğü için kalıp yok).
-3. **Aşama 8:** Kompozit döşeme kapsamı: ETABS kompozit kiriş tasarımı mı (`DesignCompositeBeam`), döşeme kalınlığı ve sac profil seçimi mi?
+3. **Aşama 8:** atlandı. Kullanıcı kararı (2026-10-06): bu programa eklenmeyecek; proje sonunda **ayrı bir döşeme optimizasyon programı** öneri olarak sunulacak (aynı depoda ikinci proje, ortak optimizasyon yöntemleri; döşeme ağırlığı çerçeve programına girdi).
 
 ## 5. Gelecek iş: model oluşturucu (kullanıcının planı, 2026-10-05)
 - ETABS modelini parametrelerden kuran ayrı bir program yazılacak.

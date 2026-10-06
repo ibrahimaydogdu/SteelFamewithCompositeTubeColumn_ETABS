@@ -61,5 +61,7 @@
 - [x] 9 uzun koşu (SSO / HS / ABC × çelik / kompozit / hibrit, 500 analiz, tohum 1); hepsinde final doğrulaması geçti. Sonuçlar `DEGISIKLIKLER.md`'de.
 - [x] Paralel koşularda çalışma klasörünün silinmesi hatası bulundu ve düzeltildi.
 - [ ] (İsteğe bağlı) Hibrit modda daha büyük bütçe ya da kompozit sonuçtan başlangıç; birden çok tohum.
-## Aşama 8 — (isteğe bağlı) Kompozit döşeme
+## Aşama 8 — Kompozit döşeme: atlandı (2026-10-06)
+- Kullanıcı kararı (2026-10-06): bu programa eklenmeyecek; proje sonunda **ayrı bir döşeme optimizasyon programı** öneri olarak sunulacak (aynı depoda ikinci proje, ortak optimizasyon yöntemleri; döşeme ağırlığı çerçeve programına girdi).
+- Kompozit çerçeve kirişi (yanal rijitliğe katkı) istenirse kolonlardaki gibi bu programa seçenek olarak eklenebilir; o da proje sonu önerisine yazılacak.
 ## Aşama 9 — Kılavuz, README, dağıtım
