@@ -64,4 +64,10 @@
 ## Aşama 8 — Kompozit döşeme: atlandı (2026-10-06)
 - Kullanıcı kararı (2026-10-06): bu programa eklenmeyecek; proje sonunda **ayrı bir döşeme optimizasyon programı** öneri olarak sunulacak (aynı depoda ikinci proje, ortak optimizasyon yöntemleri; döşeme ağırlığı çerçeve programına girdi).
 - Kompozit çerçeve kirişi (yanal rijitliğe katkı) istenirse kolonlardaki gibi bu programa seçenek olarak eklenebilir; o da proje sonu önerisine yazılacak.
-## Aşama 9 — Kılavuz, README, dağıtım
+## Aşama 9 — Model oluşturucu (ayrı program, örnek üretimi)
+- [x] Kullanıcı isteği (2026-10-06): yükler (ASCE 7), kombinasyonlar, kesit havuzları, gruplama ve diğer ayarları otomatik kuran, tablodan toplu örnek üreten program. Testleri kullanıcı elle yapacak.
+- [x] Öneri: `ASAMA9_ONERI.md`.
+- [ ] Kullanıcı kararları (öneri Bölüm 10).
+- [ ] 9.1 geometri, malzeme, havuzlar, gruplama · 9.2 yükler · 9.3 kombinasyonlar, tercihler, denetim · 9.4 form, toplu üretim, belgeler.
+
+## Aşama 10 — Kılavuz, README, dağıtım (dağıtım paketi şimdilik gerekmiyor)

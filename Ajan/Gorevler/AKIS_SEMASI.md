@@ -53,8 +53,8 @@ Aşama 6  Hibrit tasarım: kolon grubu başına çelik/kompozit                 
    │       - maliyet: çelik + beton (+ kalıp yok, tüp kalıp işlevi görür)
 Aşama 7  Uçtan uca koşu: SSO + diğer yöntemler, final ETABS doğrulaması, Excel  [bitti]
 Aşama 8  Kompozit döşeme: atlandı; proje sonunda ayrı program önerisi          [karar 2026-10-06]
-Aşama 9  Kılavuz, README, dağıtım paketi
-Gelecek  Model oluşturucu program (kullanıcının planı, 2026-10-05; bkz. Bölüm 5)
+Aşama 9  Model oluşturucu program (ayrı exe; öneri ASAMA9_ONERI.md; bkz. Bölüm 5)
+Aşama 10 Kılavuz, README (dağıtım paketi şimdilik gerekmiyor)
 ```
 
 Her aşamada izlenen adımlar:
