@@ -56,8 +56,34 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
   Böylece çalışan koşulara dokunmadan yönetici yenilenebildi.
 - **Uzun koşular:** 2026-10-05 21:18'de başladı (`D:\Kosular\Asama7`).
   - 22:35'te düzeltilmiş exe ile devam edildi: SSO_Steel ve SSO_Composite yedeğinden, HS_Steel baştan.
-  - SSO_Hybrid eski exe ile sürüyor; klasörü etkilenmedi.
-  - Sonuçlar bu bölüme eklenecek.
+  - SSO_Hybrid eski exe ile sürdü; klasörü etkilenmedi.
+  - Bütün koşular 2026-10-06 15:31'de bitti (yaklaşık 18 saat, 3 paralel ETABS).
+
+**Uzun koşu sonuçları** (525Member kopyası, AISC 360-22, D/C sınırı 0,95, 500 analiz bütçesi, popülasyon 20, tohum 1)
+
+| Yöntem | Çelik | Kompozit (CFT) | Hibrit |
+|---|---|---|---|
+| SSO | 6061,54 (527 analiz) | 5673,41 (528) | 6497,86 (503) |
+| HS | 5984,18 (513) | **5335,19** (506) | 5486,70 (517) |
+| ABC (Limit 10) | 5867,16 (509) | 5785,87 (501) | 6279,56 (538) |
+
+- **Final doğrulama:** 9 koşunun hepsinde final analizde ceza 0; ETABS ile final kontroller geçti.
+  - Kompozit ve hibrit koşularda ETABS kompozit kolon tasarımının iç hesaba oranı 0,997–1,000.
+  - Belirleyici kısıt çoğunlukla göreli kat ötelemesi: öteleme / sınır 0,75–0,99. Çelik tasarım oranı / D/C sınırı en çok 0,99.
+- **Hibrit geçişler** (yığın 1: çevre kolonları, 8 hat; yığın 2: orta kolon, 1 hat; 5 katlık gruplar):
+  - **SSO:** iki yığın da 25 kata kadar kompozit.
+  - **HS:** çevre kolonları 1–20. kat kompozit, 21–25 çelik; orta kolon bütünüyle kompozit.
+  - **ABC:** çevre kolonları bütünüyle kompozit; orta kolon 1–15. kat kompozit, 16–25 çelik.
+- **Değerlendirme:**
+  - Kompozit kolon, üç yöntemde de çelikten ucuz. En iyi değerlerle %10,8 (HS: 5335 / 5984); SSO'da %6,4, ABC'de %1,4.
+  - HS kompozit ve hibrit modda en iyi sonucu verdi; çelikte ABC en iyi (5867).
+  - **Hibrit**, aynı bütçede kompozitten daha pahalı çıktı: HS'de +%2,8, SSO'da +%14,5, ABC'de +%8,5.
+    - Bu bir arama verimliliği sonucudur: tümü kompozit tasarım hibrit uzayının içindedir, yani hibrit optimumu kompozitten pahalı olamaz.
+    - Hibrit modda değişken sayısı 14'ten 26'ya çıkıyor. 500 analiz bu uzay için az kalıyor.
+  - Sonuçlar tek tohumludur; yöntem sıralaması için kesin hüküm değildir.
+  - SSO_Steel ve SSO_Composite yedekten devam etti. Rastgele sayı üretecinin durumu yedeklenmediği için bu iki koşu kesintisiz bir koşunun birebir aynısı değildir.
+  - `summary.csv`'deki süre yalnızca son başlatmanın süresidir.
+- Koşu klasörü: `D:\Kosular\Asama7` (her koşuda sonuç XML'i, Excel, `_best.EDB`, ErrorLog). Klasör depoya alınmadı.
 
 ---
 

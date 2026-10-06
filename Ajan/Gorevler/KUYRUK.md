@@ -56,6 +56,10 @@
   - yığın bazında ve grup bazında ETABS testlerinde tip uyumsuzluğu 0;
   - uçtan uca test final doğrulamasıyla tamamlandı.
 
-## Aşama 7 — Uçtan uca koşu
+## Aşama 7 — Uçtan uca koşu (2026-10-06) ✔
+- [x] Toplu koşu: `/batch` modu ve `tools/RunBatch.ps1`.
+- [x] 9 uzun koşu (SSO / HS / ABC × çelik / kompozit / hibrit, 500 analiz, tohum 1); hepsinde final doğrulaması geçti. Sonuçlar `DEGISIKLIKLER.md`'de.
+- [x] Paralel koşularda çalışma klasörünün silinmesi hatası bulundu ve düzeltildi.
+- [ ] (İsteğe bağlı) Hibrit modda daha büyük bütçe ya da kompozit sonuçtan başlangıç; birden çok tohum.
 ## Aşama 8 — (isteğe bağlı) Kompozit döşeme
 ## Aşama 9 — Kılavuz, README, dağıtım
