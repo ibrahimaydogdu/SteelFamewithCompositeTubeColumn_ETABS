@@ -102,8 +102,9 @@ Model geçici klasörde analiz edilir (çıktı klasöründe analiz dosyası kal
 
 1. `runs_template.csv` içinde `Method` (`SocialSpider`, `HarmornySearch`, `ArtificialBeeColony`, …), `Mode` (`Steel`, `Composite`, `Hybrid`), `MaxAnalyses`, `MemorySize`, `Seed` değerlerini ayarlayın.
 2. `powershell -ExecutionPolicy Bypass -File tools\RunBatch.ps1 -Runs <runs.csv> -Out <kısa klasör> -Exe <exe kopyası>` (`KULLANIM_KILAVUZU.md` 8.4).
-3. **Deprem ötelemesi:** optimizasyon programı RS durumlarının elastik ötelemesini `App.config` içindeki `SeismicDriftAmplification` ile çarpar. Değeri örneklerin `Cd/Ie` değerine (raporda yazılı; SMF, Ie = 1 için 5,5) ayarlayın. Bu değer programın tamamı için tek sayıdır; farklı Cd/Ie'li örnekleri ayrı koşturun.
-4. Kompozit ve hibrit modlarda tüp dolgu betonu modeldeki malzemedir (`ConcreteFc` = 27,58 için hazır `4000Psi`; başka bir değerde `<psi>Psi` adıyla tanımlanır). Farklı bir beton adı kullanacaksanız `TubeSections.xml` içindeki `ConcreteMaterial` ayarına yazın.
+3. **Üst arama sınırı:** optimizasyon programı bir grubun üst sınırını ETABS'in *dayanım* tasarımından belirler; öteleme belirleyici olduğunda (deprem örnekleri) bu sınır yetmez ve en ağır sınır tasarımı bile uygunsuz kalır. `App.config` içinde `UpperBoundMultiplier = 1` yapın (bütün kesit listesi açılır). Arama aralığı büyüdüğü için uygun tasarımı bulmak daha çok analiz ister: 4 katlı örnekte 156 analiz yetmedi (en ağır kesitlerle tasarım uygun, maliyet 5573; ilk üst sınırda öteleme 1,11).
+4. **Deprem ötelemesi:** optimizasyon programı RS durumlarının elastik ötelemesini `App.config` içindeki `SeismicDriftAmplification` ile çarpar. Değeri örneklerin `Cd/Ie` değerine (raporda yazılı; SMF, Ie = 1 için 5,5) ayarlayın. Bu değer programın tamamı için tek sayıdır; farklı Cd/Ie'li örnekleri ayrı koşturun.
+5. Kompozit ve hibrit modlarda tüp dolgu betonu modeldeki malzemedir (`ConcreteFc` = 27,58 için hazır `4000Psi`; başka bir değerde `<psi>Psi` adıyla tanımlanır). Farklı bir beton adı kullanacaksanız `TubeSections.xml` içindeki `ConcreteMaterial` ayarına yazın.
 
 ## 7. Sınırlar ve kapsam dışı (ileride eklenebilir)
 
