@@ -1,7 +1,7 @@
 # Aşama 9 — Model oluşturucu (ÖNERİ)
 
 - **Tarih:** 2026-10-06.
-- **Durum:** öneri; onay bekliyor.
+- **Durum:** onaylandı (2026-10-07); uygulanıyor. Kararlar Bölüm 11'de.
 - **Kullanıcı isteği (2026-10-06):**
   - akademik çalışmanın örneklerini üreten ayrı bir program;
   - yükleri (ölü, hareketli, kar, rüzgâr, deprem) ve kombinasyonları Amerikan şartnamelerine göre kendisi tanımlasın;
@@ -54,7 +54,7 @@ Parametrelerden, optimizasyon programının **hiçbir elle müdahale gerektirmed
 - Her çubuk tam olarak bir tasarım grubunda olur. Program bunu kurduktan sonra denetler.
 - **Grup adları anlaşılır olur:** `COL-CORNER-S01-05`, `BM-EDGE-L9.0-S06-10` gibi. Ad yalnızca okunabilirlik içindir; optimizasyon programı grupları adla değil içerikle kullanır.
 - **Hibrit kolonlar:** köşe / kenar / iç gruplarından optimizasyon programı **3 kolon yığını** bulur; her yığın kendi geçiş katını alır.
-- **Grup sayısı örneği:** 15 kat, 3 kat bandı → 3 × 3 = 9 kolon grubu ve 2 × 3 = 6 kiriş grubu (tek açıklık uzunluğunda).
+- **Grup sayısı örneği:** 15 kat, 3 katlık bant → 5 bant; 3 kolon sınıfı × 5 = 15 kolon grubu, 2 kiriş sınıfı × 2 uzunluk × 5 = 20 kiriş grubu (açıklıklar 9 m ve 6 m).
 
 ## 6. Yükler, kütle ve kombinasyonlar (ASCE 7 + AISC 360-22)
 **Yük desenleri** (ETABS tipleriyle; optimizasyon programı yanal yükleri tipinden tanır):
@@ -122,3 +122,18 @@ Parametrelerden, optimizasyon programının **hiçbir elle müdahale gerektirmed
 8. **Proje yeri:** aynı depo ve solution içinde ikinci proje (`ModelBuilder/`) uygun mu?
 9. **Test:** derleme ve tek küçük örnekle duman testini benim yapmam uygun mu, yoksa tamamen size mi bırakayım?
 10. **Kapsam dışında bırakılanlar** (onay): çaprazlı sistemler, düzensiz planlar ve geri çekmeler, kar birikmesi, temel ve zemin etkileşimi. Bunlardan biri gerekli mi?
+
+## 11. Kullanıcı kararları (2026-10-07)
+1. **ASCE 7-22.**
+2. **Taşıyıcı sistem:** varsayılan çevre çerçevesi (b); uzay çerçeve (a) seçenek olarak kalır.
+3. **Çerçeve sınıfı:** parametre; varsayılan **SMF** (R = 8, Cd = 5,5, Ω0 = 3). Yüksek katlı yapıya uygun olan sınıf SMF'dir; ρ varsayılan 1,0 (parametre).
+4. **Deprem analizi: tepki spektrumu.** Kullanıcı görüşümü sordu: ASCE 7'de tasarım kategorisi D–F ve T > 3,5·Ts olan esnek yüksek katlı yapılarda eşdeğer yanal kuvvet yöntemi tek başına yetmiyor (Tablo 12.6-1). Bu nedenle:
+   - tepki spektrumu (modal, CQC) ana deprem yükü;
+   - eşdeğer yanal kuvvet yalnızca ölçekleme referansı olarak tanımlanır (taban kesmesi V; 12.9.1.4);
+   - kat ötelemeleri 12.8.6'ya göre Cd/Ie ile büyütülür.
+5. **Döşeme:** rijit diyafram (döşeme tasarlanmaz).
+6. **Çelik tasarım:** Direct Analysis Method.
+7. **Parametre girişi:** CSV.
+8. **Yer:** aynı depoda ikinci proje (`ModelBuilder/`).
+9. **Test:** derleme ve duman testini ben yaparım; esas testi kullanıcı yapar.
+10. **Kapsam dışı (ileride dahil edilebilir; not):** çaprazlı sistemler, düzensiz plan ve geri çekmeler, kar birikmesi (drift), zemin–yapı etkileşimi.

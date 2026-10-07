@@ -4,6 +4,45 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
+## 2026-10-07 — Aşama 9: Model oluşturucu (`ModelBuilder`, ayrı program) — sürüyor
+
+**Kullanıcı kararları** (öneri: `Ajan/Gorevler/ASAMA9_ONERI.md`, Bölüm 11)
+- ASCE 7-22; çevre çerçevesi varsayılan, uzay çerçeve seçenek; çerçeve sınıfı parametre (varsayılan SMF); tepki spektrumu; rijit diyafram (döşeme modellenmez); Direct Analysis Method; parametreler CSV'den; aynı depoda ikinci proje; derleme ve duman testi bende, esas test kullanıcıda.
+- Kapsam dışı (ileride eklenebilir): çaprazlı sistemler, düzensiz plan ve geri çekmeler, kar birikmesi, zemin–yapı etkileşimi.
+- Aşama 8 (kompozit döşeme) atlandı: proje sonunda ayrı program önerisi.
+
+**Bulgular (ETABS 22.6 API)**
+- Otomatik deprem için API'de yalnızca `SetASCE716` var; ASCE 7-22 yok. Rüzgâr için `cAutoWind` boş. ASCE 7-22 otomatik yükleri **veritabanı tablolarıyla** kurulacak: `Load Pattern Definitions - Auto Seismic - ASCE 7-22`, `... Auto Wind - ASCE 7-22`, `Functions - Response Spectrum - ASCE7-22`.
+- Boş ETABS modelinde `A992Fy50` (Fy 344,7 MPa, E 199948 MPa), `4000Psi`, `A615Gr60`, `A416Gr270` malzemeleri ve `D1` rijit diyaframı zaten var. Yeniden tanımlamak `A992Fy50-1` yinelemesi ve `SetDiaphragm` hatası veriyor; var olanlar kullanılıyor.
+- `AreaObj.AddByCoord` ile `PropName = "None"` boş (null) döşeme alanı üretiyor.
+- `PropFrame.Count / GetNameList` içe aktarılan kesitleri 0 gösteriyor (API tuhaflığı); kesitler elemanlardan doğrulandı.
+
+**9.1 — iskelet, geometri, havuzlar, gruplama**
+- `ModelBuilder/` (VB.NET, .NET Framework 4.7.2, çözüme ikinci proje olarak eklendi):
+  - `BuildParams.vb`: bütün parametreler ve varsayılanları, CSV okuma (`,` ya da `;` ayırıcı, `;` ile ondalık virgül, bilinmeyen sütun ve geçersiz değer hatası, yinelenen ad), `/template` ile şablon CSV;
+  - `BuildPlan.vb`: ETABS'siz geometri ve gruplama planı;
+  - `SectionPools.vb`: AISC16M kütüphanesinden W kesitler, kiriş ve kolon havuzları, AISC 341-22 Tablo D1.1 süneklik süzgeci;
+  - `EtabsBuilder.vb`: yeni ETABS örneği (kullanıcının oturumuna dokunmaz), katlar, malzemeler, kesit içe aktarma, `BeamSectionList` / `ColumnSectionList`, elemanlar ve gruplar, mafsallı kirişler, mesnetler, rijit diyafram, boş döşeme alanları, kayıt;
+  - `Program.vb`: `/template`, `/plan`, `/build ... /out ... [/hide] [/overwrite] [/only ad]`.
+- **Gruplama:** kolonlar köşe / kenar / iç × kat bandı; kirişler kenar / iç × açıklık uzunluğu × kat bandı. Adlar `COL-CORNER-S01-03`, `BM-EDGE-L9000-S01-03`.
+- **Çevre çerçevesi:** kenar kirişleri moment aktarır, iç kirişlerin iki ucunda M2 ve M3 mafsallı (kolonlar sürekli). İç kolon tabanı sabit ya da mafsallı (parametre).
+- **Süneklik süzgeci:** kütüphanede k boyutu yok; gövde için k = 1,8 tf yaklaşımı kullanılıyor (W14x90 ve W36x135'te ±%5). Yüksek süneklikte havuzlar: kiriş 168, kolon 46 kesit (289 W kesitten).
+
+**Testler**
+- Derleme (MSBuild Release): hata yok.
+- ETABS'siz: şablon, hata denetimi (bilinmeyen sütun, kötü değer), `;` ayırıcılı CSV. 15 katlı 3×3 açıklıklı örnekte plan elle doğrulandı: 240 kolon, 360 kiriş (180 moment, 180 mafsallı), 135 alan, 15 kolon + 20 kiriş grubu; kenar/iç kiriş sayıları hesapla tuttu.
+- ETABS duman testi (gizli ETABS; modeller bağımsız bir denetim programıyla yeniden açıldı):
+
+  | Örnek | Çerçeve | Eleman | Alan | Grup | Mafsallı kiriş | Mesnet | Diyaframlı düğüm |
+  |---|---|---|---|---|---|---|---|
+  | S3 (3 kat, 2×2 açıklık) | uzay | 63 | 12 | 15 | 0 | 9 sabit | 27 |
+  | P4 (4 kat, 6 / 5 m) | çevre | 84 | 16 | 14 | 16 | 8 sabit + 1 mafsallı | 36 |
+
+  - Grup içi eleman sayıları plan ile aynı; bütün elemanlar *Steel Frame Design* prosedüründe; kesitler (W310X313, W840X226) kütüphane ölçüleri ve A992Fy50 ile doğru; otomatik kesit listeleri 168 ve 46 kesit.
+- Bulunan sorunlar: `Exists`, `Lib`, `ON` VB anahtar sözcükleri; sınıf alanı `R` ile döngü değişkeni `r` çakışması; Git Bash `/plan` gibi argümanları yola çeviriyor (`MSYS_NO_PATHCONV=1` gerekli); yol uzunluğu denetimi (çıktı klasörü en çok 150 karakter).
+
+---
+
 ## 2026-10-05 — Aşama 7: Toplu koşu ve uzun karşılaştırma (SSO / HS / ABC)
 
 **Kullanıcı kararları:** HS ve ABC karşılaştırma için uygun. Uzun koşu bütçesi 500 analiz; modlar çelik, kompozit ve hibrit; 1 tohum (gerekirse artırılacak); aynı anda 3 ETABS.
