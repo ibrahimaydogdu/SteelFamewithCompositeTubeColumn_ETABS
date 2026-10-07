@@ -68,13 +68,18 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
    - Çözüm: ModelBuilder'a `SeismicProvisions` parametresi (varsayılan **No**): ETABS "Ignore Seismic Code" = Yes, yani AISC 341 hükümleri (SCWB vb.) kapalı; AISC 360 dayanımı, öteleme ve ASCE 7-22 yükleri aynen geçerli, AISC 341 kompaktlık süzgeci havuzlarda kalıyor. `Yes` ile açılabilir. Doğrulama: aynı model, kapalıyken probe tasarımında soru kutusu çıkmadı, hata mesajı yok, en yüksek oran 0,938 (C6 depremli kombinasyon).
    - **Karar gerektirir:** SCWB'yi sürekli bir kısıt olarak (ETABS'in kolon/kiriş kapasite oranını okuyarak) iyileştiriciye eklemek ayrı bir geliştirme.
 4. **Üst arama sınırı öteleme belirleyici olduğunda yetmiyor.** SCWB kapalıyken aynı örnekte (4 katlı, Cd/Ie = 5,5) 159 analizde yine uygun tasarım çıkmadı. En iyi tasarımın tek ihlali göreli kat ötelemesiydi (sınırın 1,12 katı; dayanım oranı 0,58). **Bütün değişkenler üst sınırdayken** de tasarım uygunsuzdu (öteleme 1,11; dayanım 0,38): sınır, ETABS'in *dayanıma göre* yaptığı ilk tasarımın kesiti + 0,23·(N−1) sıra olarak belirleniyor ve öteleme hiç hesaba katılmıyor, yani problem sınırlar yüzünden çözümsüz.
-   - Düzeltme: `App.config` anahtarı `UpperBoundMultiplier` (varsayılan **0,23** = eski davranış, regresyon etkilenmez). Öteleme belirleyiciyse (deprem örnekleri) `1` yapılırsa bütün kesit listesi açılır. Sonuç aşağıda.
+   - Düzeltme: `App.config` anahtarı `UpperBoundMultiplier` (varsayılan **0,23** = eski davranış, regresyon etkilenmez). Öteleme belirleyiciyse (deprem örnekleri) `1` yapılırsa bütün kesit listesi açılır.
+   - **Sonuç (aynı 4 katlı örnek, `UpperBoundMultiplier = 1`, SSO, popülasyon 20, 156 analiz): yine uygun tasarım bulunamadı.** Problemin çözülebildiği ayrıca doğrulandı: bütün gruplar en ağır kesitteyken (W920X1377) tasarım uygun (öteleme 0,26, dayanım 0,11, maliyet 5573); üst sınır tasarımı ise maliyet 640'ta öteleme 1,11. Uygun bölge bu ikisinin arasında; kısa bütçe (yaklaşık 7 döngü) geniş aralıkta ona ulaşamadı. 500 analizlik koşu bu gözleme göre denenecek.
+5. **Dikkat:** `RunBatch.ps1` "uygun tasarım yok" nedeniyle sonuçsuz biten koşuyu bir kez yedekten yeniden başlatır; bu durumda koşu aynı bütçeyle ikinci kez çalışır (bu oturumda eski bir koşunun yeniden başlatması yeni koşuyu bir saat bekletti). Yöneticiyi kapatırken ilgili süreçleri de kapatın.
 3. Sürüm 0.5.1.0.
 
 **Regresyon (525M gömülü mod, tohum 12345, 2 değerlendirme)**
 - Beklenen (Aşama 5.1'den beri): 7564,91 / 1,4580 ve 7068,84 / 1,8032.
 - Bugünkü değerler: **7556,76 / 1,4605 ve 7281,65 / 1,5927**. Tasarımlar neredeyse aynı, yalnızca bir grupta bir kesit farklı (eval 2, `var2`: W310X97 / W310X74).
-- **Eski (0.4.1) test programı da bugün aynı değerleri veriyor** (kontrol koşusu, aynı koşullar): fark yeni koda bağlı değil. **Olası neden (henüz doğrulanmadı):** ölçümler başka iki ETABS örneği çalışırken yapıldı; çok iş parçacıklı çözümde sayısal farklar otomatik kesit seçimini bir adım kaydırabiliyor (README: aynı tohum küçük farklar verebilir). ETABS tek başına çalışırken yapılacak tekrar sonucu aşağıya eklenecek.
+- **Eski (0.4.1) test programı da bugün aynı değerleri veriyor** (kontrol koşusu, aynı koşullar): fark yeni koda bağlı değil.
+  - "Eşzamanlı ETABS örnekleri" varsayımı **çürütüldü**: ETABS tek başına çalışırken yapılan yeni tekrar da aynı değerleri verdi (7556,76 / 1,4605 ve 7281,65 / 1,5927; başlangıç tasarımı 511 s).
+  - Neden **bilinmiyor**: kod aynı (eski ve yeni exe aynı sonucu veriyor), model dosyası aynı, günlükler aynı; fark 5 Ekim'den bugüne ortamdaki bir değişiklikten (ETABS ya da işletim sistemi tarafı) geliyor. Tasarım vektörleri neredeyse aynı, yalnızca bir grupta kesit farklı olduğundan en olası yer, ETABS'in otomatik seçim tasarımına bağlı başlangıç sınırları (Lb/Ub).
+  - **Yeni taban değerleri (0.5.1, 2026-10-07, 525M gömülü, tohum 12345, 2 değerlendirme): 7556,76 / 1,4605 ve 7281,65 / 1,5927.** Sonraki regresyonlar bunlarla karşılaştırılacak; eski değerler tarihçe olarak kalır.
 
 ---
 
