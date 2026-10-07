@@ -137,3 +137,13 @@ Parametrelerden, optimizasyon programının **hiçbir elle müdahale gerektirmed
 8. **Yer:** aynı depoda ikinci proje (`ModelBuilder/`).
 9. **Test:** derleme ve duman testini ben yaparım; esas testi kullanıcı yapar.
 10. **Kapsam dışı (ileride dahil edilebilir; not):** çaprazlı sistemler, düzensiz plan ve geri çekmeler, kar birikmesi (drift), zemin–yapı etkileşimi.
+
+## 12. Uygulama sırasında bulunan değişiklik (2026-10-07)
+ETABS 22.6'da **otomatik** ASCE 7-22 yük desenleri API ile kurulamıyor:
+- `LoadPatterns.AutoSeismic` yalnızca eski `SetASCE716` / `SetIBC2006` içeriyor ve çağrı hata veriyor; `AutoWind` boş.
+- Veritabanı tablolarında `AutoLoad` alanı içe aktarılamıyor (alan açıklaması: "auto load patterns are not imported"); otomatik desen satırları sessizce reddediliyor.
+
+Bu yüzden Bölüm 6 şöyle uygulanıyor:
+- **Deprem:** ASCE 7-22 tepki spektrumu fonksiyonu (`Functions - Response Spectrum - ASCE7-22` tablosu) ve `RSX` / `RSY` tepki spektrumu durumları ETABS'te kuruluyor. Eşdeğer yanal kuvvet ETABS deseni olmadan, ASCE 7-22 12.8'e göre sayısal hesaplanıyor (Ta, Cu, Cs, V) ve spektrum durumu en az `SpectrumScaleMin × V` taban kesmesine ölçekleniyor (12.9.1.4). Hesap raporda yazılı.
+- **Rüzgâr:** ASCE 7-22 Bölüm 26–27 (Directional Procedure, kapalı bina) basınçları program tarafından hesaplanıyor; kat düğümlerine kuvvet olarak uygulanıyor (rüzgâr alan yüzünde basınç, sotavent yüzde emme; 16 psf asgari yük). Kuvvetler raporda kat kat listeleniyor. Durumlar: WX, WY (Durum 1) ve %75'lik eşzamanlı durum (Durum 3, kombinasyonlarda 0,75 WX + 0,75 WY). Burulmalı Durum 2 ve 4 sonraki sürüme bırakıldı.
+- **Hareketli yük azaltması, gerçek rüzgâr tüneli / esnek bina gust faktörü:** kapsam dışı; `WindGust` kullanıcı değeridir.

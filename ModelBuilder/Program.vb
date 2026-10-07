@@ -1,12 +1,19 @@
 Imports System.Globalization
 Imports System.IO
+Imports System.Runtime.InteropServices
+Imports System.Windows.Forms
 
 'Command line:
+'  ModelBuilder.exe                                            the form
 '  ModelBuilder.exe /template <file.csv>                       writes a CSV with all columns and the default values
-'  ModelBuilder.exe /plan <examples.csv>                       geometry and groups of every example (no ETABS)
+'  ModelBuilder.exe /plan <examples.csv> [/only <name>]        geometry and groups of every example (no ETABS)
 '  ModelBuilder.exe /build <examples.csv> /out <folder> [/hide] [/overwrite] [/only <name>]
 '                                                              one ETABS model <name>.EDB and report per example
 Public Module Program
+    <DllImport("kernel32.dll")>
+    Private Function FreeConsole() As Boolean
+    End Function
+
     Private LogFile As String
 
     Private Sub Say(ByVal Text As String)
@@ -29,7 +36,14 @@ Public Module Program
         Return A.Any(Function(x) x.Equals(Name, StringComparison.OrdinalIgnoreCase))
     End Function
 
+    <STAThread>
     Public Function Main(ByVal A() As String) As Integer
+        If A.Length = 0 Then
+            FreeConsole()
+            Application.EnableVisualStyles()
+            Application.Run(New BuilderForm)
+            Return 0
+        End If
         Console.OutputEncoding = System.Text.Encoding.UTF8
         Try
             If Has(A, "/template") Then
@@ -57,7 +71,11 @@ Public Module Program
                 Next
                 Return 0
             End If
-            Return BuildAll(List, A)
+            Dim OutDir As String = Arg(A, "/out")
+            If OutDir Is Nothing Then Return Usage()
+            Directory.CreateDirectory(OutDir)
+            LogFile = Path.Combine(Path.GetFullPath(OutDir), "builder.log")
+            Return BuildRunner.Run(List, OutDir, Has(A, "/hide"), Has(A, "/overwrite"), AddressOf Say, Nothing)
         Catch ex As Exception
             Say("error: " & ex.Message)
             Return 1
@@ -65,50 +83,10 @@ Public Module Program
     End Function
 
     Private Function Usage() As Integer
+        Console.WriteLine("ModelBuilder.exe                       (form)")
         Console.WriteLine("ModelBuilder.exe /template <file.csv>")
         Console.WriteLine("ModelBuilder.exe /plan <examples.csv> [/only <name>]")
         Console.WriteLine("ModelBuilder.exe /build <examples.csv> /out <folder> [/hide] [/overwrite] [/only <name>]")
         Return 2
-    End Function
-
-    Private Function BuildAll(ByVal List As List(Of BuildParams_), ByVal A() As String) As Integer
-        Dim OutDir As String = Arg(A, "/out")
-        If OutDir Is Nothing Then Return Usage()
-        Directory.CreateDirectory(OutDir)
-        OutDir = Path.GetFullPath(OutDir)
-        If OutDir.Length > 150 Then Say("error: the output folder path is too long (" & OutDir.Length & " characters, at most 150)") : Return 1
-        LogFile = Path.Combine(OutDir, "builder.log")
-        Dim Overwrite As Boolean = Has(A, "/overwrite")
-        Dim Todo = List.Where(Function(p)
-                                  Dim Present As Boolean = File.Exists(Path.Combine(OutDir, p.Name & ".EDB"))
-                                  If Present AndAlso Not Overwrite Then Say("skipped (the model exists, use /overwrite): " & p.Name)
-                                  Return Overwrite OrElse Not Present
-                              End Function).ToList()
-        If Todo.Count = 0 Then Return 0
-        Dim Builder As New EtabsBuilder With {.Log = AddressOf Say, .Hide = Has(A, "/hide")}
-        Dim LibFile As String = EtabsBuilder.FindLibrary(EtabsBuilder.FindETABS())
-        If LibFile Is Nothing Then Say("error: section library not found (SectionPropertyDataPath)") : Return 1
-        Dim Failed As Integer
-        Try
-            Builder.Start()
-            For Each P In Todo
-                Say("== " & P.Name)
-                Try
-                    Dim Plan = BuildPlan_.Create(P)
-                    Dim Edb As String = Builder.Build(Plan, LibFile, OutDir)
-                    Say("done: " & P.Name)
-                Catch ex As Exception
-                    Failed += 1
-                    Say("FAILED: " & P.Name & ": " & ex.Message)
-                End Try
-            Next
-        Catch ex As Exception
-            Say("error: " & ex.Message)
-            Failed += 1
-        Finally
-            Builder.Shutdown()
-        End Try
-        Say(Todo.Count - Failed & " of " & Todo.Count & " models built")
-        Return If(Failed = 0, 0, 1)
     End Function
 End Module

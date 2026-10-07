@@ -1261,19 +1261,30 @@ Partial Public Class ETABS_Class
         End Try
     End Function
 
-    'Imports the W sections that are not yet defined in the model, so SetSection cannot fail
+    'Imports the W sections that are not yet defined in the model, so SetSection cannot fail.
+    'GetNameList without a property type returns no names (ETABS 22.6), so the I-shaped sections are asked for by type; a section
+    'that exists although it was not listed (ImportProp fails for an existing name) is checked with GetISection and skipped.
     Private Function InitializeSections_ImportToModel() As Integer
         Dim ret As Integer
         Dim NumberNames As Integer
         Dim MyName() As String = Nothing
-        ret = SapModel.PropFrame.GetNameList(NumberNames, MyName)
+        ret = SapModel.PropFrame.GetNameList(NumberNames, MyName, ETABSv1.eFramePropType.I)
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropFrame.GetNameList") : Return ret : End If
         Dim existing As New HashSet(Of String)(If(MyName, New String() {}), StringComparer.OrdinalIgnoreCase)
+        Dim Skipped As Integer
         For Each Section In WSections
-            If existing.Contains(Section.SectionName) Then Continue For
+            If existing.Contains(Section.SectionName) Then Skipped += 1 : Continue For
             ret = SapModel.PropFrame.ImportProp(Section.SectionName, STEEL_MATERIAL, SectionPropertyData, Section.SectionName, -1, "", "")
-            If (ret <> 0) Then : Errorlogprint("Problem occurred on :PropFrame.ImportProp " & Section.SectionName) : Return ret : End If
+            If (ret <> 0) Then
+                Dim FileName, MatProp, Notes, Guid As String, T3, T2, Tf, Tw, T2b, Tfb As Double, Color As Integer
+                FileName = "" : MatProp = "" : Notes = "" : Guid = ""
+                If SapModel.PropFrame.GetISection(Section.SectionName, FileName, MatProp, T3, T2, Tf, Tw, T2b, Tfb, Color, Notes, Guid) = 0 Then
+                    Skipped += 1 : ret = 0 : Continue For
+                End If
+                Errorlogprint("Problem occurred on :PropFrame.ImportProp " & Section.SectionName) : Return ret
+            End If
         Next
+        If Skipped > 0 Then Errorlogprint("Info: " & Skipped & " of " & WSections.Count & " library sections are already defined in the model")
         Return ret
     End Function
 

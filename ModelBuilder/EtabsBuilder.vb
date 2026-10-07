@@ -17,6 +17,9 @@ Partial Public Class EtabsBuilder
     Private ETABSObject As ETABSv1.cOAPI
     Private SapModel As ETABSv1.cSapModel
     Private EtabsPid As Integer = -1
+    Private TempDirs As New List(Of String)
+    Public BeamPoolSize, ColumnPoolSize As Integer
+    Private BeamPool, ColumnPool As List(Of LibSection_)
 
     Public Const STEEL_MATERIAL As String = "A992Fy50"
     Public Const BEAM_LIST As String = "BeamSectionList"           'names of the optimization program (App.config BeamAutoSelectList / ColumnAutoSelectList)
@@ -82,6 +85,14 @@ Partial Public Class EtabsBuilder
             End Try
         End If
         ETABSObject = Nothing : SapModel = Nothing
+        For Each d In TempDirs
+            Try
+                If Directory.Exists(d) Then Directory.Delete(d, True)
+            Catch
+                Msg("Warning: temporary folder not removed: " & d)
+            End Try
+        Next
+        TempDirs.Clear()
     End Sub
 
     '_______________________________________________________________________________________________
@@ -89,6 +100,8 @@ Partial Public Class EtabsBuilder
     Public Function Build(ByVal Plan As BuildPlan_, ByVal LibFile As String, ByVal OutDir As String) As String
         Dim P As BuildParams_ = Plan.P
         Dim EdbFile As String = Path.Combine(OutDir, P.Name & ".EDB")
+        Report.Clear()
+        Result = New AuditResult_
 
         Chk(SapModel.InitializeNewModel(ETABSv1.eUnits.kN_m_C), "InitializeNewModel")
         Chk(SapModel.File.NewBlank(), "File.NewBlank")
@@ -100,10 +113,23 @@ Partial Public Class EtabsBuilder
         DefineSections(Plan, LibFile, Beams, Columns)
         DefineMembers(Plan, Beams, Columns)
         DefineFloors(Plan)
-        BuildStep2(Plan)
+        DefineLoads(Plan)
+        DefineCombinations(Plan)
+        DefineDesignSettings(Plan)
+
+        'check analysis in a temporary folder (the analysis files do not go to the output folder), then the clean model is saved
+        Dim Temp As String = Path.Combine(Path.GetTempPath(), "ModelBuilder", P.Name & "_" & Date.Now.ToString("HHmmss"))
+        Directory.CreateDirectory(Temp)
+        TempDirs.Add(Temp)
+        Chk(SapModel.File.Save(Path.Combine(Temp, P.Name & ".EDB")), "File.Save (check copy)")
+        PreSizeMembers(Plan)
+        AuditModel(Plan)
+        RestoreMedianSections(Plan)
+        If SapModel.GetModelIsLocked() Then Chk(SapModel.SetModelIsLocked(False), "SetModelIsLocked")
 
         Chk(SapModel.File.Save(EdbFile), "File.Save")
         Msg("model saved: " & EdbFile)
+        File.WriteAllText(Path.Combine(OutDir, P.Name & "_report.txt"), Plan.Describe() & Environment.NewLine & Report.ToString(), New System.Text.UTF8Encoding(True))
         Return EdbFile
     End Function
 
@@ -150,6 +176,8 @@ Partial Public Class EtabsBuilder
         Dim All = SectionPools.ReadW(LibFile)
         Beams = SectionPools.BeamPool(All, P)
         Columns = SectionPools.ColumnPool(All, P)
+        BeamPoolSize = Beams.Count : ColumnPoolSize = Columns.Count
+        BeamPool = Beams : ColumnPool = Columns
         If Beams.Count < 3 Then Throw New BuilderException("the beam pool has " & Beams.Count & " sections: check BeamMinDepth, BeamMaxDepth and SeismicFilter")
         If Columns.Count < 3 Then Throw New BuilderException("the column pool has " & Columns.Count & " sections: check ColumnSeries, ColumnCa and SeismicFilter")
         Dim Imported As New HashSet(Of String)
@@ -185,14 +213,8 @@ Partial Public Class EtabsBuilder
         Msg(Plan.Columns.Count & " columns, " & Plan.Beams.Count & " beams, " & Plan.Groups.Count & " groups")
     End Sub
 
-    'Null floor areas (they carry the floor loads to the beams, see 9.2); supports; rigid diaphragms
+    'Supports and rigid diaphragms (the slab is not modeled: the floor loads go to the beams, see Loads.vb)
     Private Sub DefineFloors(ByVal Plan As BuildPlan_)
-        Dim Name As String = ""
-        For Each C In Plan.Cells
-            Dim X() As Double = {C.X1, C.X2, C.X2, C.X1}, Y() As Double = {C.Y1, C.Y1, C.Y2, C.Y2}, Z() As Double = {C.Z, C.Z, C.Z, C.Z}
-            Chk(SapModel.AreaObj.AddByCoord(4, X, Y, Z, Name, "None", "", "Global"), "AreaObj.AddByCoord (null floor area)")
-            FloorNames.Add(Name)
-        Next
         Dim NP As Integer, PN() As String = Nothing, PX() As Double = Nothing, PY() As Double = Nothing, PZ() As Double = Nothing
         Chk(SapModel.PointObj.GetAllPoints(NP, PN, PX, PY, PZ), "PointObj.GetAllPoints")
         Dim Interior As New HashSet(Of String)(Plan.Columns.Where(Function(c) c.Kind = "Interior" AndAlso c.Story = 1).Select(Function(c) Key(c.X, c.Y)))
@@ -216,16 +238,11 @@ Partial Public Class EtabsBuilder
                 Chk(SapModel.PointObj.SetDiaphragm(PN(i), ETABSv1.eDiaphragmOption.DefinedDiaphragm, DIAPHRAGM), "PointObj.SetDiaphragm")
             End If
         Next
-        Msg(Plan.Cells.Count & " null floor areas, " & NBase & " supports (" & NPinned & " pinned), rigid diaphragm " & DIAPHRAGM & " at " & (NP - NBase) & " joints")
+        Msg(NBase & " supports (" & NPinned & " pinned), rigid diaphragm " & DIAPHRAGM & " at " & (NP - NBase) & " joints")
     End Sub
-
-    Private FloorNames As New List(Of String)
 
     Private Shared Function Key(ByVal X As Double, ByVal Y As Double) As String
         Return Math.Round(X, 3).ToString(CultureInfo.InvariantCulture) & "|" & Math.Round(Y, 3).ToString(CultureInfo.InvariantCulture)
     End Function
 
-    'Placeholder of the next steps (loads, combinations, design preferences, final check)
-    Private Sub BuildStep2(ByVal Plan As BuildPlan_)
-    End Sub
 End Class

@@ -60,9 +60,11 @@ Public Class BuildParams_
     Public R As Double = 0                          'response modification coefficient (0 = by FrameClass)
     Public Cd As Double = 0                         'deflection amplification factor (0 = by FrameClass)
     Public Omega0 As Double = 0                     'overstrength factor (0 = by FrameClass)
+    Public RiskCategory As String = "II"            'risk category I | II | III | IV (seismic design category)
     Public Ie As Double = 1.0                       'importance factor
     Public Rho As Double = 1.0                      'redundancy factor
     Public EccentricityRatio As Double = 0.05       'accidental eccentricity
+    Public PreSize As Boolean = True                'size the members before the check analysis: one relative pool index for all members, found so that T = Cu Ta (the spectrum scaling then belongs to a realistic stiffness)
     Public SpectrumScaleMin As Double = 1.0         'the response spectrum base shear is scaled to at least this fraction of the equivalent lateral force base shear (ASCE 7-22 12.9.1.4)
 
     '--- design and analysis
@@ -119,6 +121,7 @@ Public Class BuildParams_
         If SDS <= 0 OrElse SD1 <= 0 OrElse TL <= 0 Then E.Add("SDS, SD1 and TL must be positive")
         If WindSpeed <= 0 Then E.Add("WindSpeed must be positive")
         If Ie <= 0 Then E.Add("Ie must be positive")
+        If Not {"I", "II", "III", "IV"}.Contains(RiskCategory) Then E.Add("RiskCategory must be I, II, III or IV")
         If Modes < 3 Then E.Add("Modes must be at least 3")
         Return E
     End Function
@@ -152,11 +155,20 @@ Public Class BuildParams_
                         F.SetValue(P, V)
                     ElseIf F.FieldType Is GetType(Integer) Then
                         F.SetValue(P, Integer.Parse(V, NumberStyles.Integer, CultureInfo.InvariantCulture))
+                    ElseIf F.FieldType Is GetType(Boolean) Then
+                        Dim Lw As String = V.ToLowerInvariant()
+                        If {"yes", "true", "1", "evet"}.Contains(Lw) Then
+                            F.SetValue(P, True)
+                        ElseIf {"no", "false", "0", "hayir", "hayır"}.Contains(Lw) Then
+                            F.SetValue(P, False)
+                        Else
+                            Throw New FormatException()
+                        End If
                     ElseIf F.FieldType Is GetType(Double) Then
                         F.SetValue(P, Double.Parse(If(Delim = ";"c, V.Replace(","c, "."c), V), NumberStyles.Float, CultureInfo.InvariantCulture))
                     End If
                 Catch ex As FormatException
-                    Errors.Add("row " & (Row + 1) & ", column " & Header(c) & ": '" & V & "' is not a number")
+                    Errors.Add("row " & (Row + 1) & ", column " & Header(c) & ": '" & V & "' is not a valid value")
                 End Try
             Next
             For Each m In P.Validate() : Errors.Add("row " & (Row + 1) & " (" & P.Name & "): " & m) : Next
