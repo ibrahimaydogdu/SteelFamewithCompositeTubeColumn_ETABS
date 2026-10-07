@@ -7,7 +7,10 @@ Imports System.Globalization
 Partial Public Class ETABS_Class
     Private Const PMM_LOG_MULTIPLIER As Double = 0.5
     Private Const DRIFT_LOG_MULTIPLIER As Double = 0.5
-    Private Const UPPER_BOUND_MULTIPLIER As Double = 0.23
+    'Upper search bound = section of the strength design + shift + UpperBoundMultiplier * (N - 1) positions of the list. The default 0.23
+    'suits designs governed by strength; when the story drift governs (seismic examples) the strength design is far below the sections
+    'needed and the bound makes the problem infeasible: App.config UpperBoundMultiplier = 1 opens the whole section list.
+    Private ReadOnly UPPER_BOUND_MULTIPLIER As Double = Math.Max(0.0, ReadNumber("UpperBoundMultiplier", 0.23))
     Private Const LOWER_BOUND_MULTIPLIER As Double = 0.23
     Private Const PMM_RATIO_OFFSET As Double = 0.01
     Private Const COORD_TOL As Double = 0.001 'mm
