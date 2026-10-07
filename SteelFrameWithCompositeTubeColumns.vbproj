@@ -141,6 +141,7 @@
     <Compile Include="SocialSpider.vb" />
     <Compile Include="TubeColumn.vb" />
     <Compile Include="HybridColumns.vb" />
+    <Compile Include="DialogGuard.vb" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="MainForm.resx">

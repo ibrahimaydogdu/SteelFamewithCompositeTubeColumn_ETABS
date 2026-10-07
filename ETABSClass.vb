@@ -415,6 +415,8 @@ Partial Public Class ETABS_Class
         SapModel = ETABSObject.SapModel
         Dim Started = Diagnostics.Process.GetProcessesByName("ETABS").Where(Function(x) Not Before.Contains(x.Id)).ToList()
         EtabsPid = If(Started.Count = 1, Started(0).Id, -1)        'unknown if other ETABS instances started at the same time
+        'a message box of the hidden ETABS cannot be seen and blocks the API call for ever: it is answered (see DialogGuard)
+        If FormInfo.HideETABS = True Then DialogGuard.StartFor(EtabsPid, AddressOf Errorlogprint)
         If FormInfo.HideETABS = True Then
             ret = ETABSObject.Hide
             If (ret <> 0) Then : Errorlogprint("Problem occurred on :Hide model") : Return ret : End If
@@ -471,6 +473,7 @@ Partial Public Class ETABS_Class
     'it is still running after EXIT_WAIT_S (only the process started by this program)
     Private Const EXIT_WAIT_S As Integer = 60
     Private Sub ExitInstance()
+        DialogGuard.Stop()
         Try
             ETABSObject?.ApplicationExit(False)
         Catch ex As Exception

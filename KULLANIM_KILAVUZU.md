@@ -603,6 +603,7 @@ powershell -ExecutionPolicy Bypass -File tools\RunBatch.ps1 -Runs tools\Asama7_r
 - En çok `-Parallel` koşu aynı anda çalışır ve koşular `-StartDelay` saniye arayla başlatılır. Her koşu ayrı bir ETABS açar; ETABS lisansının birden fazla örneğe izin vermesi gerekir.
 - Sonucu olan koşular atlanır. Kesilen koşular `-Resume` ile yedekten devam eder.
 - Sonunda `<Out>\summary.csv` yazılır. Sütunlar: analiz sayısı, en iyi maliyet ve cezası, final analizdeki maliyet ve ceza, final durumu, süre (saat) ve hibrit yığınların geçişi. Yalnızca özet için: `-SummaryOnly`.
+- **Örnek modeller:** tablodan toplu model üretmek için ayrı program: `ModelBuilder` (kılavuz: `ModelBuilder\README.md`). Ürettiği `runs_template.csv` bu betiğin liste biçimindedir.
 - **Yol uzunluğu:** program 260 karakteri aşan yollara yazamaz. Betik, en uzun dosya yolu 230 karakteri aşarsa durur; `-Out` için kısa bir klasör seçin.
 - Koşular sürerken aynı exe yeniden derlenemez. Bu nedenle exe'yi (`bin\Release` içeriğini) koşu klasörüne kopyalayıp `-Exe` ile o kopyayı verin.
 

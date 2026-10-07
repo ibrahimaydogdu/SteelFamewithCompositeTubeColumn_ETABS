@@ -4,7 +4,7 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
-## 2026-10-07 — Aşama 9: Model oluşturucu (`ModelBuilder`, ayrı program) — sürüyor
+## 2026-10-07 — Aşama 9: Model oluşturucu (`ModelBuilder`, ayrı program) ve iyileştirici düzeltmeleri (0.5.1) — sürüyor
 
 **Kullanıcı kararları** (öneri: `Ajan/Gorevler/ASAMA9_ONERI.md`, Bölüm 11)
 - ASCE 7-22; çevre çerçevesi varsayılan, uzay çerçeve seçenek; çerçeve sınıfı parametre (varsayılan SMF); tepki spektrumu; rijit diyafram (döşeme modellenmez); Direct Analysis Method; parametreler CSV'den; aynı depoda ikinci proje; derleme ve duman testi bende, esas test kullanıcıda.
@@ -39,7 +39,37 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
   | P4 (4 kat, 6 / 5 m) | çevre | 84 | 16 | 14 | 16 | 8 sabit + 1 mafsallı | 36 |
 
   - Grup içi eleman sayıları plan ile aynı; bütün elemanlar *Steel Frame Design* prosedüründe; kesitler (W310X313, W840X226) kütüphane ölçüleri ve A992Fy50 ile doğru; otomatik kesit listeleri 168 ve 46 kesit.
-- Bulunan sorunlar: `Exists`, `Lib`, `ON` VB anahtar sözcükleri; sınıf alanı `R` ile döngü değişkeni `r` çakışması; Git Bash `/plan` gibi argümanları yola çeviriyor (`MSYS_NO_PATHCONV=1` gerekli); yol uzunluğu denetimi (çıktı klasörü en çok 150 karakter).
+- Bulunan sorunlar: `Exists`, `Lib`, `ON`, `Short`, `Dir`, `T`/`Row` VB adları; sınıf alanı `R` ile döngü değişkeni `r` çakışması; Git Bash `/plan` gibi argümanları yola çeviriyor (`MSYS_NO_PATHCONV=1` gerekli); yol uzunluğu denetimi (çıktı klasörü en çok 150 karakter).
+
+**9.2 — yükler**
+- `Loads.vb`: desenler `Dead` (öz ağırlık), `SDL`, `Live`, `RoofLive`, `Snow`, `PartMass`, `WX`, `WY`.
+  - Düşey yükler **kirişlere** iki yönlü 45° kuralıyla üçgen / yamuk yayılı yük olarak veriliyor. ETABS'in boş alan yükü (`SetLoadUniform`) çerçeveye aktarılmıyor ve `SetLoadUniformToFrame` bu sürümde -100 veriyor; bu yüzden boş alan nesneleri de kaldırıldı.
+  - Rüzgâr: ASCE 7-22 Bölüm 26–27 Directional Procedure (qz, Kz Tablo 26.10-1, Cp Tablo 27.3-1, asgari 16 psf), kat düğümlerine tributary genişlikle kuvvet.
+  - Kütle kaynağı: öz kütle + `SDL` + `PartMass` (+ pf > 1,44 kPa ise karın %20'si). Modal durum.
+  - ASCE 7-22 tepki spektrumu fonksiyonu ve `RSX` / `RSY` durumları (tablo içe aktarma; tablo yazımı oku–değiştir–yaz: içe aktarma, tabloda olmayan satırları siliyor).
+- **Doğrulama (analiz, S3 örneği):** düşey reaksiyonlar elle hesapla aynı: `SDL` 2390,4 kN (= 4,2 kPa × 432 m² + 4 kN/m × 144 m), `Live` 898,6, `RoofLive` 138,2, `PartMass` 138,2 kN; `WX` = `WY` = −178,4 kN. Bu doğrulama bir hatayı yakaladı (Y yönü rüzgâr toplamı VB'de döngü içi `Dim` sıfırlanmadığı için 357 kN yazılıyordu).
+
+**9.3 — kombinasyonlar, tasarım tercihleri, kontrol analizi**
+- `Combos.vb`: ASCE 7-22 2.3.1 ve 2.3.6, **35 kombinasyon** (kar varsa 53); AISC 360-22 çelik ve kompozit kolon tasarımı için hepsi işaretli. Tercihler: çerçeve tipi, SDC, Ie, ρ, SDS, R, Ω0, Cd, LRFD, Direct Analysis. Bağımsız denetim: katsayılar (ör. `C6_RSX+0.3RSY` = 1,4 D + 1,0 RSX + 0,3 RSY + 0,5 Live; `C7_…` 0,7 D), 35 / 35 seçili, kod `AISC 360-22`, model kilitsiz.
+- `Audit.vb`: geçici klasörde kontrol analizi (çıktı klasöründe analiz dosyası kalmaz); mod sayısı `max(Modes, kat)` ile başlar, kütle katılımı < %90 ise iki katına çıkar (en çok 3 × kat ve 60); ELF taban kesmesi sayısal (Ta = 0,0724 h^0,8, Cu, Cs sınırları); RS durumları ≥ `SpectrumScaleMin × V`'ye ölçeklenir. S3 elle kontrol: W = 3306 kN, Cs = 0,125, V = 413 kN; ölçeklemeden sonra RS kesmesi 413 kN.
+- **Ön boyutlandırma (`PreSize`).** Yer tutucu kesitlerle 15 katlı örnek çok esnek (T1 = 4,5 s) ve ölçek çarpanı 2,0 / 2,9 çıkıyordu. Tek göreli havuz indeksi ikiye bölme ile T ≤ Cu·Ta için aranıyor; çarpan 1,33 / 1,54'e indi. Sonra kesitler tarafsız medyana geri alınıyor. Çarpan sabit bir sayıdır; tasarıma bağlı ölçekleme iyileştiricide yok (Aşama 10 önerisi).
+
+**9.4 — arayüz ve çıktılar**
+- Form (argümansız açılır): CSV ve çıktı klasörü seçimi, plan, kurulum, durdurma, şablon CSV. Görsel olarak denetlendi.
+- `examples_summary.csv` ve optimizasyon programının toplu koşu listesi biçiminde `runs_template.csv`; her örnek için `<ad>_report.txt`.
+- `ModelBuilder/README.md` (Türkçe kılavuz), `ModelBuilder/Ornek_Liste.csv` (5 örnek: 5, 10, 15, 20 kat, uzay çerçeve).
+- Süreler (gizli ETABS, 8 çekirdek): 3 ve 4 katlı örnek yaklaşık 3,5 dk, 15 katlı örnek yaklaşık 3 dk (ön boyutlandırma erken çıkışla).
+
+**İyileştiricide bulunan ve düzeltilen hatalar (0.5.1)**
+1. **`PropFrame.GetNameList(N, Adlar)` türsüz çağrıda her zaman 0 döndürüyor.** İyileştirici "modelde olan kesitleri atla" denetimini bu yüzden hiç yapmıyordu. 525M'de çakışma yoktu (modelin kesit adları W14X…, kütüphanenin metrik adları W360X…). ModelBuilder modellerinde havuz kesitleri zaten tanımlı olduğundan `ImportProp` "W250X25.3" için hata verip koşuyu başlatmadan bitiriyordu. Düzeltme: adlar `I` türüyle sorgulanıyor ve `ImportProp` hata verirse `GetISection` ile varlık doğrulanıp atlanıyor. Günlükte "Info: N of 289 library sections are already defined in the model".
+2. **ETABS'in gizli soru kutusu koşuyu sonsuza dek bekletiyordu.** Üretilen modelde ilk tasarım sırasında "6 Steel frames with auto select sections failed stress/capacity check. Do you want to select them?" kutusu açıldı; ETABS gizli olduğu için kutu görünmüyor, koşu 70 dakika "takılı" kaldı (CPU 0). Yeni `DialogGuard.vb`: gizli ETABS örneğinde görünür kutuları izler; Yes/No sorusuna **No**, tek OK'li iletiye **OK** der, diğerlerini yalnızca günlüğe yazar. Test: aynı model, yeni derleme; günlük: "Warning: ETABS dialog answered No: …", koşu 6 dakikada aramaya geçti.
+   - Not: ETABS'in "6 eleman" iddiası bağımsız tasarım denemesiyle doğrulanamadı: otomatik seçimden sonra 84 elemanın en yüksek oranı 0,906 (5 m'lik mafsallı iç kirişlerde havuzun en küçük kesitleri); sonuçsuz eleman yok.
+3. Sürüm 0.5.1.0.
+
+**Regresyon (525M gömülü mod, tohum 12345, 2 değerlendirme)**
+- Beklenen (Aşama 5.1'den beri): 7564,91 / 1,4580 ve 7068,84 / 1,8032.
+- Bugünkü değerler: **7556,76 / 1,4605 ve 7281,65 / 1,5927**. Tasarımlar neredeyse aynı, yalnızca bir grupta bir kesit farklı (eval 2, `var2`: W310X97 / W310X74).
+- **Eski (0.4.1) test programı da bugün aynı değerleri veriyor** (kontrol koşusu, aynı koşullar): fark yeni koda bağlı değil. **Olası neden (henüz doğrulanmadı):** ölçümler başka iki ETABS örneği çalışırken yapıldı; çok iş parçacıklı çözümde sayısal farklar otomatik kesit seçimini bir adım kaydırabiliyor (README: aynı tohum küçük farklar verebilir). ETABS tek başına çalışırken yapılacak tekrar sonucu aşağıya eklenecek.
 
 ---
 

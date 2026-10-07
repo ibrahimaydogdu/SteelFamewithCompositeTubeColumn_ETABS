@@ -1,9 +1,11 @@
 # Steel Frame Optimization with Composite Tube Columns (ETABS)
 
-> **Status: in development (0.5.0).** This project starts from
+> **Status: in development (0.5.1).** This project starts from
 > [SteelFamewithCompositeColumn_ETABS](https://github.com/ibrahimaydogdu/SteelFamewithCompositeColumn_ETABS) (2026.10.3).
 > Added so far: Social Spider Optimization (16th method), concrete-filled tube columns and hybrid columns (steel or composite per group, optimized transition story). Planned:
-> - optional composite floor design.
+> - a separate composite floor design program is proposed for the end of the project.
+>
+> Also in this repository: **[ModelBuilder](ModelBuilder/README.md)** (Turkish), a separate program that builds the ETABS models of the examples from a CSV table (ASCE 7-22 loads and combinations, section pools, member groups) for use with the optimization program.
 >
 > The text below describes the inherited features.
 
@@ -87,6 +89,7 @@ to read the results.
 | File | Content |
 |---|---|
 | [KULLANIM_KILAVUZU.md](KULLANIM_KILAVUZU.md) | User guide |
+| [ModelBuilder/README.md](ModelBuilder/README.md) | Model builder: CSV table, generated model, loads, combinations, limits |
 | [PROGRAM_KURALLARI.md](PROGRAM_KURALLARI.md) | Program structure and rules for developers |
 | [DEGISIKLIKLER.md](DEGISIKLIKLER.md) | Change log with test results |
 | [Ajan/](Ajan/README.md) | Agent workflow: capabilities, memory, task queue |
