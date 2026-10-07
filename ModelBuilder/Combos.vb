@@ -99,8 +99,8 @@ Partial Public Class EtabsBuilder
             {"FrameType", P.FrameClass}, {"SDC", Sdc}, {"ImpFactor", P.Ie.ToString("0.###", CultureInfo.InvariantCulture)}, {"Rho", P.Rho.ToString("0.###", CultureInfo.InvariantCulture)},
             {"Sds", P.SDS.ToString("0.###", CultureInfo.InvariantCulture)}, {"R", P.EffR().ToString("0.###", CultureInfo.InvariantCulture)},
             {"Omega0", P.EffOmega0().ToString("0.###", CultureInfo.InvariantCulture)}, {"Cd", P.EffCd().ToString("0.###", CultureInfo.InvariantCulture)},
-            {"DesProv", "LRFD"}, {"AnalMethod", "Direct Analysis"}})
+            {"DesProv", "LRFD"}, {"AnalMethod", "Direct Analysis"}, {"SeismicCode", If(P.SeismicProvisions, "No", "Yes")}})
         Rep("Design settings (" & DESIGN_CODE & "): " & P.FrameClass & ", seismic design category " & Sdc & " (risk category " & P.RiskCategory & "), R " & P.EffR().ToString("0.##", CultureInfo.InvariantCulture) &
-            ", Omega0 " & P.EffOmega0().ToString("0.##", CultureInfo.InvariantCulture) & ", Cd " & P.EffCd().ToString("0.##", CultureInfo.InvariantCulture) & ", LRFD, Direct Analysis Method")
+            ", Omega0 " & P.EffOmega0().ToString("0.##", CultureInfo.InvariantCulture) & ", Cd " & P.EffCd().ToString("0.##", CultureInfo.InvariantCulture) & ", LRFD, Direct Analysis Method, AISC 341 seismic provisions " & If(P.SeismicProvisions, "ON (strong column - weak beam etc. are checked)", "OFF (AISC 360 strength and drift only)"))
     End Sub
 End Class

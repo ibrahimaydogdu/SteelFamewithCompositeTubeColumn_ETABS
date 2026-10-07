@@ -60,6 +60,7 @@ Public Class BuildParams_
     Public R As Double = 0                          'response modification coefficient (0 = by FrameClass)
     Public Cd As Double = 0                         'deflection amplification factor (0 = by FrameClass)
     Public Omega0 As Double = 0                     'overstrength factor (0 = by FrameClass)
+    Public SeismicProvisions As Boolean = False     'Yes: ETABS also applies the AISC 341 provisions of the framing type (strong column - weak beam, ...). The optimization program treats a failed check as a design error (a hard penalty), which makes the search very hard. No: AISC 360 strength + drift only (AISC 341 compactness stays in the section pools)
     Public RiskCategory As String = "II"            'risk category I | II | III | IV (seismic design category)
     Public Ie As Double = 1.0                       'importance factor
     Public Rho As Double = 1.0                      'redundancy factor
