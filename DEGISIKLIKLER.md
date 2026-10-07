@@ -4,7 +4,7 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 
 ---
 
-## 2026-10-07 — Aşama 9: Model oluşturucu (`ModelBuilder`, ayrı program) ve iyileştirici düzeltmeleri (0.5.1) — sürüyor
+## 2026-10-07 — Aşama 9: Model oluşturucu (`ModelBuilder`, ayrı program) ve iyileştirici düzeltmeleri (0.5.1)
 
 **Kullanıcı kararları** (öneri: `Ajan/Gorevler/ASAMA9_ONERI.md`, Bölüm 11)
 - ASCE 7-22; çevre çerçevesi varsayılan, uzay çerçeve seçenek; çerçeve sınıfı parametre (varsayılan SMF); tepki spektrumu; rijit diyafram (döşeme modellenmez); Direct Analysis Method; parametreler CSV'den; aynı depoda ikinci proje; derleme ve duman testi bende, esas test kullanıcıda.
@@ -70,6 +70,9 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 4. **Üst arama sınırı öteleme belirleyici olduğunda yetmiyor.** SCWB kapalıyken aynı örnekte (4 katlı, Cd/Ie = 5,5) 159 analizde yine uygun tasarım çıkmadı. En iyi tasarımın tek ihlali göreli kat ötelemesiydi (sınırın 1,12 katı; dayanım oranı 0,58). **Bütün değişkenler üst sınırdayken** de tasarım uygunsuzdu (öteleme 1,11; dayanım 0,38): sınır, ETABS'in *dayanıma göre* yaptığı ilk tasarımın kesiti + 0,23·(N−1) sıra olarak belirleniyor ve öteleme hiç hesaba katılmıyor, yani problem sınırlar yüzünden çözümsüz.
    - Düzeltme: `App.config` anahtarı `UpperBoundMultiplier` (varsayılan **0,23** = eski davranış, regresyon etkilenmez). Öteleme belirleyiciyse (deprem örnekleri) `1` yapılırsa bütün kesit listesi açılır.
    - **Sonuç (aynı 4 katlı örnek, `UpperBoundMultiplier = 1`, SSO, popülasyon 20, 156 analiz): yine uygun tasarım bulunamadı.** Problemin çözülebildiği ayrıca doğrulandı: bütün gruplar en ağır kesitteyken (W920X1377) tasarım uygun (öteleme 0,26, dayanım 0,11, maliyet 5573); üst sınır tasarımı ise maliyet 640'ta öteleme 1,11. Uygun bölge bu ikisinin arasında; kısa bütçe (yaklaşık 7 döngü) geniş aralıkta ona ulaşamadı. 500 analizlik koşu bu gözleme göre denenecek.
+   - **500 analizlik doğrulama koşusu (4 katlı P4, `UpperBoundMultiplier = 1`, `SeismicDriftAmplification = 5,5`, SSO, popülasyon 20, tohum 1): başarılı.** 522 analiz, 1 sa 59 dk (analiz başına ~14 s). İlk uygun tasarım aramanın ilk yarısında bulundu; en iyi maliyet **2587,64**, ceza 0, son ETABS kontrolü geçti (`FinalFails = false`). Kısıtlar: kat ötelemesi/sınır 0,993 (belirleyici), tepe ötelemesi 0,878, dayanım oranı 0,205, geometrik 1,000 / 0,997. Çözüm 640 (uygunsuz) ile 5573 (hepsi W920X1377) arasında.
+   - Sonuç: ModelBuilder örneği optimizasyon programıyla uçtan uca çalışıyor (`SeismicProvisions = No`, `UpperBoundMultiplier = 1`, `SeismicDriftAmplification = Cd/Ie` ile).
+   - Süre notu: 4 katlı örnekte 500 analiz ≈ 2 sa; 15 katlı örnekte analiz başına süre çok daha uzun olacağından (525M'de ~35 s) bir koşu saatler sürer.
 5. **Dikkat:** `RunBatch.ps1` "uygun tasarım yok" nedeniyle sonuçsuz biten koşuyu bir kez yedekten yeniden başlatır; bu durumda koşu aynı bütçeyle ikinci kez çalışır (bu oturumda eski bir koşunun yeniden başlatması yeni koşuyu bir saat bekletti). Yöneticiyi kapatırken ilgili süreçleri de kapatın.
 3. Sürüm 0.5.1.0.
 

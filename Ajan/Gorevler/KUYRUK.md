@@ -67,7 +67,13 @@
 ## Aşama 9 — Model oluşturucu (ayrı program, örnek üretimi)
 - [x] Kullanıcı isteği (2026-10-06): yükler (ASCE 7), kombinasyonlar, kesit havuzları, gruplama ve diğer ayarları otomatik kuran, tablodan toplu örnek üreten program. Testleri kullanıcı elle yapacak.
 - [x] Öneri: `ASAMA9_ONERI.md`.
-- [ ] Kullanıcı kararları (öneri Bölüm 10).
-- [ ] 9.1 geometri, malzeme, havuzlar, gruplama · 9.2 yükler · 9.3 kombinasyonlar, tercihler, denetim · 9.4 form, toplu üretim, belgeler.
+- [x] Kullanıcı kararları alındı (2026-10-07) ve uygulandı: 9.1 geometri, malzeme, havuzlar, gruplama · 9.2 yükler · 9.3 kombinasyonlar, tercihler, denetim · 9.4 form, toplu üretim, belgeler. Ayrıntı `DEGISIKLIKLER.md`.
+- [x] Uçtan uca doğrulama: 4 katlı örnek optimizasyon programında 500 analizde uygun tasarım verdi.
+- [ ] **Kullanıcı kararı bekleyen / ileride:**
+  - güçlü kolon–zayıf kiriş (AISC 341) denetiminin sürekli kısıt olarak optimizasyon programına eklenmesi (şimdilik `SeismicProvisions = No`);
+  - tasarıma bağlı RS taban kesmesi ölçeklemesi (ASCE 7-22 12.9.1.4) optimizasyon programında;
+  - öteleme belirleyiciyken üst arama sınırının otomatik genişletilmesi (şimdilik `UpperBoundMultiplier = 1` elle);
+  - `SeismicDriftAmplification` ve `UpperBoundMultiplier` toplu koşuda örnek başına verilebilsin (şimdilik `App.config`, tek sayı);
+  - ModelBuilder: burulmalı rüzgâr durumları, esnek bina için G_f, tali kirişler, düzensiz plan / çaprazlı sistem (kapsam dışı notu).
 
 ## Aşama 10 — Kılavuz, README, dağıtım (dağıtım paketi şimdilik gerekmiyor)
