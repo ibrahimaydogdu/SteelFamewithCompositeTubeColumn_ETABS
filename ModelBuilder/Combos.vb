@@ -81,6 +81,24 @@ Partial Public Class EtabsBuilder
     End Sub
 
     '_______________________________________________________________________________________________
+    'Lateral bracing of the beams (secondary beams / deck): unbraced length ratio of every beam = 1 / ceil(span / BeamBracingSpacing),
+    'written to the design overwrites (minor axis and lateral-torsional buckling). Without it ETABS takes the whole span as unbraced
+    'and AISC 341 D1.2b (Lb / ry limit of the SMF beams) rejects most sections.
+    Private Sub DefineBeamBracing(ByVal Plan As BuildPlan_)
+        Dim P As BuildParams_ = Plan.P
+        If P.BeamBracingSpacing <= 0 Then Rep("Beam lateral bracing: none (beams unbraced over the whole span)") : Return
+        Dim Changed As Integer
+        For Each B In Plan.Beams
+            Dim R As Double = 1.0 / Math.Max(1, CInt(Math.Ceiling(B.Length / P.BeamBracingSpacing - 0.000001)))
+            If R >= 0.9999 Then Continue For
+            'The overwrite table ignores LMinor / LTB on import (silently), so the API is used: items 27 = LMinor, 28 = LTB of AISC 360-22
+            Dim N As String = FrameNames(B)
+            If SapModel.DesignSteel.AISC360_22.SetOverwrite(N, 27, R, ETABSv1.eItemType.Objects) = 0 AndAlso SapModel.DesignSteel.AISC360_22.SetOverwrite(N, 28, R, ETABSv1.eItemType.Objects) = 0 Then Changed += 1
+        Next
+        Rep("Beam lateral bracing: spacing " & F(P.BeamBracingSpacing) & " m, " & Changed & " of " & Plan.Beams.Count & " beams divided into equal unbraced lengths (design overwrites LMinor and LTB)")
+    End Sub
+
+    '_______________________________________________________________________________________________
     'Seismic design category (ASCE 7-22 Tables 11.6-1 and 11.6-2, risk categories I to IV; S1 >= 0.75 g: E or F)
     Public Shared Function SeismicDesignCategory(ByVal P As BuildParams_) As String
         Dim IV As Boolean = (P.RiskCategory = "IV")

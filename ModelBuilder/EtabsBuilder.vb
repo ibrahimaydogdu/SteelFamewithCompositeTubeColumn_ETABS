@@ -116,6 +116,7 @@ Partial Public Class EtabsBuilder
         DefineLoads(Plan)
         DefineCombinations(Plan)
         DefineDesignSettings(Plan)
+        DefineBeamBracing(Plan)
 
         'check analysis in a temporary folder (the analysis files do not go to the output folder), then the clean model is saved
         Dim Temp As String = Path.Combine(Path.GetTempPath(), "ModelBuilder", P.Name & "_" & Date.Now.ToString("HHmmss"))
@@ -126,6 +127,7 @@ Partial Public Class EtabsBuilder
         AuditModel(Plan)
         RestoreMedianSections(Plan)
         If SapModel.GetModelIsLocked() Then Chk(SapModel.SetModelIsLocked(False), "SetModelIsLocked")
+        DefineBeamBracing(Plan)             'again: changing the sections (RestoreMedianSections) clears the design overwrites
 
         Chk(SapModel.File.Save(EdbFile), "File.Save")
         Msg("model saved: " & EdbFile)

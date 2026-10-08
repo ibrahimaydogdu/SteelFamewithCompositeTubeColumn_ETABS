@@ -17,6 +17,7 @@ Public Class BuildParams_
     '--- structural system and grouping
     Public FrameSystem As String = "Perimeter"      'Perimeter: moment frames on the perimeter, pinned interior beams (gravity frame) | Space: all beam-column joints are moment joints
     Public InteriorColumnBase As String = "Fixed"   'base of the interior (gravity) columns of the Perimeter system: Fixed | Pinned
+    Public BeamBracingSpacing As Double = 2.5       'lateral bracing spacing of the beams [m] (secondary beams / deck): the unbraced length of a beam is its span divided into ceil(span / spacing) equal parts; 0 = unbraced over the whole span. AISC 341 D1.2b limits Lb/ry of the SMF beams
     Public ColumnOrientation As String = "Auto"    'Auto: the edge columns of the lines x = const (frames in the y direction) are rotated by 90 degrees, so that their strong axis lies in the plane of the frame; corner and interior columns keep the default (strong axis in the x frames) | None: all columns keep the default
     Public StoryBand As Integer = 3                 'stories per member group (the groups change every StoryBand stories)
 
@@ -113,6 +114,7 @@ Public Class BuildParams_
         If Not {"Perimeter", "Space"}.Contains(FrameSystem) Then E.Add("FrameSystem must be Perimeter or Space")
         If Not {"Fixed", "Pinned"}.Contains(InteriorColumnBase) Then E.Add("InteriorColumnBase must be Fixed or Pinned")
         If Not {"Auto", "None"}.Contains(ColumnOrientation) Then E.Add("ColumnOrientation must be Auto or None")
+        If BeamBracingSpacing < 0 Then E.Add("BeamBracingSpacing must be 0 or positive")
         If StoryBand < 1 Then E.Add("StoryBand must be at least 1")
         If ConcreteFc < 10 OrElse ConcreteFc > 100 Then E.Add("ConcreteFc must be 10 to 100 MPa")
         If BeamMinDepth <= 0 OrElse BeamMaxDepth < BeamMinDepth Then E.Add("beam depth range is not valid")

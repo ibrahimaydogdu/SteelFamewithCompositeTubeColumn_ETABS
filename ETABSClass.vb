@@ -1417,6 +1417,7 @@ Partial Public Class ETABS_Class
         Dim BC0 As Dictionary(Of String, Double) = ReadBeamColumnRatios()
         SCWBActive = BC0 IsNot Nothing AndAlso BC0.Values.Any(Function(v) v > 0)
         If SCWBActive Then Errorlogprint("Info: AISC 341 strong column - weak beam is active: the lower bound of the beam groups is opened (lightest section)")
+        InitializeDuctilityFilter()
 
         Dim N As Integer = WSections.Count
         Dim NV As Integer = SteelFrameDesignGroupIDs.Count
@@ -1646,15 +1647,101 @@ Partial Public Class ETABS_Class
         Dim Lo As Integer = If(GLb IsNot Nothing, GLb(v), 0), Hi As Integer = If(GUb IsNot Nothing, GUb(v), CatalogCount(v) - 1)
         Dim Best As Integer = -1, BestDist As Integer = Integer.MaxValue
         For k = Lo To Hi
-            If Not Fits(k) Then Continue For
+            If Not Fits(k) OrElse Not IsDuctile(v, k) Then Continue For
             Dim d As Integer = Math.Abs(k - Current)
             If d < BestDist OrElse (d = BestDist AndAlso Rng.Next(2) = 0) Then Best = k : BestDist = d
         Next
         Return Best
     End Function
 
+    '_______________________________________________________________________________________________
+    'AISC 341 ductility filter. When the AISC 341 provisions are active in the model (strong column - weak beam ratios exist and the
+    'framing type is SMF or IMF) ETABS rejects the sections that are not seismically compact ("Section is not seismically compact for
+    'highly ductile members", Table D1.1) as design errors. Variables that hold such a section are moved to the nearest compliant
+    'section before the analysis (the same repair step as the geometric constraints). Flanges: bf / 2tf <= 0.32 (High) or 0.40
+    '(Moderate) sqrt(E / Ry Fy); webs with Ca = Pu / (phi Py): beams Ca = 0, columns Ca = App.config SeismicColumnCa (the actual Ca of
+    'ETABS can be larger: the remaining cases are caught by the penalty). h = d - 2 k, k = 1.8 tf (the library has no k).
+    Private DuctilityLevel As String = "None"        'None | Moderate | High
+    Private DuctileBeam() As Boolean, DuctileColumn() As Boolean
+    Private Const E_STEEL As Double = 199948.0, FY_STEEL As Double = 344.738, RY_STEEL As Double = 1.1
+
+    Private Shared Function MeetsDuctility(ByVal S As SectionStructures_.STEEL_I_SECTION, ByVal High As Boolean, ByVal Ca As Double) As Boolean
+        Dim Root As Double = Math.Sqrt(E_STEEL / (RY_STEEL * FY_STEEL))
+        If S.FlangeLength / (2 * S.FlangeThickness) > If(High, 0.32, 0.4) * Root Then Return False
+        Dim H As Double = S.Depth - 2 * 1.8 * S.FlangeThickness
+        Dim Lim As Double
+        If Ca <= 0.114 Then
+            Lim = If(High, 2.57 * (1 - 1.04 * Ca), 3.96 * (1 - 3.04 * Ca)) * Root
+        Else
+            Lim = Math.Max(If(High, 0.88 * (2.68 - Ca), 1.29 * (2.12 - Ca)), 1.57) * Root
+        End If
+        Return H / S.WebThickness <= Lim
+    End Function
+
+    'True if section k of variable v may be used (always True when the filter is off, for composite groups and for tube variables)
+    Private Function IsDuctile(ByVal v As Integer, ByVal k As Integer) As Boolean
+        If DuctilityLevel = "None" OrElse DuctileBeam Is Nothing Then Return True
+        Dim ID As Integer = SteelFrameDesignGroupIDs(v)
+        If Groups(ID).IsComposite OrElse IsTubeVar(v) Then Return True
+        If k < 0 OrElse k >= DuctileBeam.Length Then Return True
+        Return If(Groups(ID).IsColumn, DuctileColumn(k), DuctileBeam(k))
+    End Function
+
+    'Filter level from the model: App.config SeismicDuctilityFilter = auto (default) | on | off. auto: only when the AISC 341 checks exist
+    '(SCWBActive) and the framing type of the steel design preferences is SMF (High) or IMF (Moderate).
+    Private Sub InitializeDuctilityFilter()
+        DuctilityLevel = "None" : DuctileBeam = Nothing : DuctileColumn = Nothing
+        Dim Mode As String = If(ReadSetting("SeismicDuctilityFilter"), "auto").Trim().ToLowerInvariant()
+        If Mode = "off" OrElse (Mode <> "on" AndAlso Not SCWBActive) Then Return
+        Dim FrameType As String = ""
+        Try
+            Dim Version, N As Integer, Fields() As String = Nothing, Data() As String = Nothing
+            If SapModel.DatabaseTables.GetTableForEditingArray("Steel Frame Design Preferences - " & FormInfo.FrameInfo.SteelDesignCode, "", Version, Fields, N, Data) = 0 AndAlso N > 0 Then
+                Dim i As Integer = Array.IndexOf(Fields, "FrameType")
+                If i >= 0 Then FrameType = Data(i)
+            End If
+        Catch
+        End Try
+        If FrameType = "SMF" Then
+            DuctilityLevel = "High"
+        ElseIf FrameType = "IMF" Then
+            DuctilityLevel = "Moderate"
+        ElseIf Mode = "on" Then
+            DuctilityLevel = "High"
+        Else
+            Return
+        End If
+        Dim Ca As Double = Math.Max(0.0, ReadNumber("SeismicColumnCa", 0.3))
+        Dim High As Boolean = (DuctilityLevel = "High")
+        ReDim DuctileBeam(WSections.Count - 1) : ReDim DuctileColumn(WSections.Count - 1)
+        For i = 0 To WSections.Count - 1
+            DuctileBeam(i) = MeetsDuctility(WSections(i), High, 0)
+            DuctileColumn(i) = MeetsDuctility(WSections(i), High, Ca)
+        Next
+        Errorlogprint("Info: AISC 341 ductility filter (" & FrameType & ", " & DuctilityLevel & " ductility): " & DuctileBeam.Count(Function(b) b) & " of " & WSections.Count & " sections for beams, " &
+                      DuctileColumn.Count(Function(b) b) & " for columns (Ca " & Ca.ToString("0.##", CultureInfo.InvariantCulture) & "); other sections are replaced by the nearest compliant one before every analysis")
+    End Sub
+
+    'Variables that hold a section that is not seismically compact move to the nearest compliant section (within the bounds, else anywhere)
+    Private Sub E1_Modifier_Ductility(ByVal Sect_Ind() As Integer)
+        If DuctilityLevel = "None" Then Return
+        For v = 0 To Sect_Ind.Length - 1
+            If IsDuctile(v, Sect_Ind(v)) Then Continue For
+            Dim k As Integer = NearestFeasible(v, Sect_Ind(v), Function(s) True)
+            If k < 0 Then
+                Dim BestDist As Integer = Integer.MaxValue
+                For s = 0 To WSections.Count - 1
+                    If Not IsDuctile(v, s) Then Continue For
+                    If Math.Abs(s - Sect_Ind(v)) < BestDist Then k = s : BestDist = Math.Abs(s - Sect_Ind(v))
+                Next
+            End If
+            If k >= 0 Then Sect_Ind(v) = k
+        Next
+    End Sub
+
     'Geometric repair (array elements are modified in place): the smallest change that satisfies the constraint
     Private Sub E1_Modifier_Geometric(ByVal Sect_Ind() As Integer)
+        E1_Modifier_Ductility(Sect_Ind)
         For Each CtoC In GeoCons.CtoCList
             Dim GrNameDown As String = CtoC(1)
             Dim UpVar As Integer = VarIndex(CtoC(0))
