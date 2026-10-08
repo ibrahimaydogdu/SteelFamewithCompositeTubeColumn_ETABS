@@ -69,6 +69,7 @@
 - [x] Öneri: `ASAMA9_ONERI.md`.
 - [x] Kullanıcı kararları alındı (2026-10-07) ve uygulandı: 9.1 geometri, malzeme, havuzlar, gruplama · 9.2 yükler · 9.3 kombinasyonlar, tercihler, denetim · 9.4 form, toplu üretim, belgeler. Ayrıntı `DEGISIKLIKLER.md`.
 - [x] Uçtan uca doğrulama: 4 katlı örnek optimizasyon programında 500 analizde uygun tasarım verdi.
+- [ ] **AISC 341 açık (SeismicProvisions = Yes) örnekleri çözülebilir yapmak:** SCWB sürekli kısıt ve kiriş alt sınırı açma yapıldı (köşe kolon oranı 1,01'e indi), ama üst kat kenar kirişlerinde ETABS tasarım hataları kaldı (süneklik/kompaktlık olasılığı). Seçenekler: (a) iyileştiricide AISC 341 süneklik süzgeci (kesit listesini sınırla; ModelBuilder'daki `MeetsDuctility` taşınabilir), (b) hata metnini oku ve sürekli orana çevir. Kullanıcı kararı bekleniyor.
 - [ ] **Kullanıcı kararı bekleyen / ileride:**
   - güçlü kolon–zayıf kiriş (AISC 341) denetiminin sürekli kısıt olarak optimizasyon programına eklenmesi (şimdilik `SeismicProvisions = No`);
   - tasarıma bağlı RS taban kesmesi ölçeklemesi (ASCE 7-22 12.9.1.4) optimizasyon programında;

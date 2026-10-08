@@ -1412,6 +1412,12 @@ Partial Public Class ETABS_Class
         ret = G1_ConsPMM(True)
         If (ret <> 0) Then : Errorlogprint("Problem occurred on :G1_ConsPMM") : Return ret : End If
 
+        'AISC 341 strong column - weak beam active (the columns have beam/column capacity ratios): a lighter beam lowers the ratio, so the
+        'strength design (lower bound) is no longer a lower bound of the beam groups: they are opened down to the lightest section
+        Dim BC0 As Dictionary(Of String, Double) = ReadBeamColumnRatios()
+        SCWBActive = BC0 IsNot Nothing AndAlso BC0.Values.Any(Function(v) v > 0)
+        If SCWBActive Then Errorlogprint("Info: AISC 341 strong column - weak beam is active: the lower bound of the beam groups is opened (lightest section)")
+
         Dim N As Integer = WSections.Count
         Dim NV As Integer = SteelFrameDesignGroupIDs.Count
         ReDim Ub(NV - 1)
@@ -1429,7 +1435,7 @@ Partial Public Class ETABS_Class
             Dim L As Integer = SecID + CInt(Shift - LOWER_BOUND_MULTIPLIER * (N - 1))
             U = Math.Min(Math.Max(U, 0), N - 1)
             'steel W section
-            SteelUb(i) = U : SteelLb(i) = Math.Min(Math.Max(L, 0), U)        'a very large design ratio shifts both bounds up
+            SteelUb(i) = U : SteelLb(i) = If(SCWBActive AndAlso Not Groups(isec).IsColumn, 0, Math.Min(Math.Max(L, 0), U))        'a very large design ratio shifts both bounds up
             'composite (column groups of the composite modes)
             If FormInfo.CompositeColumns AndAlso Groups(isec).IsColumn Then
                 If TubeMode Then
@@ -2113,6 +2119,7 @@ Partial Public Class ETABS_Class
         End If
     End Sub
 
+    Private SCWBActive As Boolean       'AISC 341 strong column - weak beam checks exist in the model (set in Initialize_UBLB)
     Private Const BC_MESSAGE As String = "Beam/Column capacity ratio exceeds limit"
 
     'True if the design message of a frame is only the beam/column capacity ratio message
