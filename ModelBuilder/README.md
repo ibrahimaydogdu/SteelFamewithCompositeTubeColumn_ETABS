@@ -35,6 +35,7 @@ Birimler: m, kN, kPa, MPa, m/s, g, s. Bay uzunlukları `3x9 6` biçiminde (9, 9,
 | `FirstStoryHeight`, `StoryHeight` | 4.5, 3.6 | Zemin kat ve normal kat yüksekliği |
 | `FrameSystem` | Perimeter | `Perimeter`: çevre çerçeveleri moment aktarır, iç kirişler mafsallı (yerçekimi çerçevesi); `Space`: bütün birleşimler moment aktarır |
 | `InteriorColumnBase` | Fixed | Perimeter sisteminde iç kolon tabanı: `Fixed` / `Pinned` |
+| `ColumnOrientation` | Auto | `Auto`: x = sabit çizgilerdeki kenar kolonlar (Y yönündeki çerçevelerin kolonları) 90° döndürülür; güçlü eksenleri çerçeve düzleminde olur. Köşe ve iç kolonlar varsayılan yönde kalır. `None`: hepsi varsayılan yönde |
 | `StoryBand` | 3 | Kaç katta bir grup değişir |
 | `ConcreteFc` | 27.58 | Tüp dolgu betonu f'c (MPa); malzeme `<psi>Psi` adıyla (27,58 = `4000Psi`) |
 | `BeamMinDepth`, `BeamMaxDepth` | 250, 920 | Kiriş havuzu derinlik aralığı (mm) |

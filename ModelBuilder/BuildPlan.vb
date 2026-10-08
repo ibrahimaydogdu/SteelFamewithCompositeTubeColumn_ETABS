@@ -8,6 +8,7 @@ Public Class PlanColumn_
     Public Story As Integer
     Public Kind As String       'Corner | Edge | Interior
     Public Group As String
+    Public Angle As Double      'rotation of the local axes about the column axis [deg]
 End Class
 
 Public Class PlanBeam_
@@ -75,6 +76,7 @@ Public Class BuildPlan_
                     Dim ei As Boolean = (i = 0 OrElse i = nx), ej As Boolean = (j = 0 OrElse j = ny)
                     Dim Kind As String = If(ei AndAlso ej, "Corner", If(ei OrElse ej, "Edge", "Interior"))
                     Dim C As New PlanColumn_ With {.X = B.XLines(i), .Y = B.YLines(j), .Z1 = B.Levels(k - 1), .Z2 = B.Levels(k), .Story = k, .Kind = Kind}
+                    If P.ColumnOrientation = "Auto" AndAlso Kind = "Edge" AndAlso ei Then C.Angle = 90      'edge column of an x = const line: the y frame bends it about the strong axis
                     C.Group = "COL-" & Kind.ToUpperInvariant() & "-" & Band(k)
                     B.Columns.Add(C) : Reg(C.Group, True, Kind, 0, k)
                 Next

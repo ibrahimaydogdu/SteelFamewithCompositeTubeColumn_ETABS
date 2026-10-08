@@ -156,8 +156,9 @@ function Get-Progress($j) {
     if (Test-Path $Bak) {
         try {
             $s = [IO.File]::ReadAllText($Bak)
-            $m = [regex]::Match($s, '<GlobalBest>.*?<CostValue>(.*?)</CostValue>\s*<Penalty>(.*?)</Penalty>', 'Singleline')
-            if ($m.Success -and $m.Groups[2].Value -eq '0') { $o.BestCost = $m.Groups[1].Value; $o.BestPenalty = '0' }
+            # uygun tasarım yokken GlobalBest varsayılan değerlerde kalır (maliyet 0, ceza 0, PenalizedCost INF)
+            $m = [regex]::Match($s, '<GlobalBest>.*?<CostValue>(.*?)</CostValue>\s*<Penalty>(.*?)</Penalty>\s*<PenalizedCost>(.*?)</PenalizedCost>', 'Singleline')
+            if ($m.Success -and $m.Groups[3].Value -notmatch 'INF|NaN' -and $m.Groups[2].Value -eq '0') { $o.BestCost = $m.Groups[1].Value; $o.BestPenalty = '0' }
             elseif ($m.Success) { $o.BestPenalty = 'uygun tasarım yok' }
             $it = [regex]::Match($s, '<iter>(.*?)</iter>'); if ($it.Success) { $o.Analyses = $it.Groups[1].Value }
         } catch { }

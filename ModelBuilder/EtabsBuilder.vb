@@ -201,6 +201,7 @@ Partial Public Class EtabsBuilder
         For Each C In Plan.Columns
             Chk(SapModel.FrameObj.AddByCoord(C.X, C.Y, C.Z1, C.X, C.Y, C.Z2, Name, ColumnSection, "", "Global"), "FrameObj.AddByCoord (column)")
             Chk(SapModel.FrameObj.SetGroupAssign(Name, C.Group), "FrameObj.SetGroupAssign " & C.Group)
+            If C.Angle <> 0 Then Chk(SapModel.FrameObj.SetLocalAxes(Name, C.Angle), "FrameObj.SetLocalAxes")
             FrameNames(C) = Name
         Next
         Dim II() As Boolean = {False, False, False, False, True, True}, Start() As Double = {0, 0, 0, 0, 0, 0}
@@ -210,7 +211,7 @@ Partial Public Class EtabsBuilder
             If Not Bm.Moment Then Chk(SapModel.FrameObj.SetReleases(Name, II, II, Start, Start), "FrameObj.SetReleases")
             FrameNames(Bm) = Name
         Next
-        Msg(Plan.Columns.Count & " columns, " & Plan.Beams.Count & " beams, " & Plan.Groups.Count & " groups")
+        Msg(Plan.Columns.Count & " columns (" & Plan.Columns.Where(Function(c) c.Angle <> 0).Count() & " rotated by 90 degrees), " & Plan.Beams.Count & " beams, " & Plan.Groups.Count & " groups")
     End Sub
 
     'Supports and rigid diaphragms (the slab is not modeled: the floor loads go to the beams, see Loads.vb)
