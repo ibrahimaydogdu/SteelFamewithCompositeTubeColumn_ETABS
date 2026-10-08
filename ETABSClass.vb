@@ -2120,6 +2120,25 @@ Partial Public Class ETABS_Class
     End Sub
 
     Private SCWBActive As Boolean       'AISC 341 strong column - weak beam checks exist in the model (set in Initialize_UBLB)
+    Private LoggedDesignErrors As New HashSet(Of String)
+
+    'ETABS design error messages (other than the beam/column ratio): each distinct text is written once to the error log with the group
+    'and the section of the first frame that has it, so the cause of a penalty "design error" can be read
+    Private Sub LogDesignErrors(ByVal Group As String, ByVal Items As List(Of Integer), ByVal FrameName() As String, ByVal ErrorSummary() As String, ByVal BCContinuous As Boolean)
+        Try
+            For Each j In Items
+                Dim Msg As String = ErrorSummary(j)
+                If String.IsNullOrWhiteSpace(Msg) OrElse (BCContinuous AndAlso OnlyBeamColumnMessage(Msg)) Then Continue For
+                Msg = Msg.Replace(vbCr, " ").Replace(vbLf, " ").Trim()
+                If Not LoggedDesignErrors.Add(Msg) Then Continue For
+                Dim Sect As String = Nothing
+                SapModel.DesignSteel.GetDesignSection(FrameName(j), Sect)
+                Errorlogprint("Warning: ETABS design error in group " & Group & " (section " & Sect & ", frame " & FrameName(j) & "): " & Msg)
+            Next
+        Catch
+        End Try
+    End Sub
+
     Private Const BC_MESSAGE As String = "Beam/Column capacity ratio exceeds limit"
 
     'True if the design message of a frame is only the beam/column capacity ratio message
@@ -2199,7 +2218,10 @@ Partial Public Class ETABS_Class
                 If BCRatios IsNot Nothing Then BCRatios.TryGetValue(Groups(ID).GroupName, BC)
                 Groups(ID).SCWBRatio = BC
                 Dim ErrorCount As Integer = Items.Where(Function(j) Not String.IsNullOrEmpty(ErrorSummary(j)) AndAlso Not (BCRatios IsNot Nothing AndAlso OnlyBeamColumnMessage(ErrorSummary(j)))).Count()
-                If ErrorCount > 0 Then Groups(ID).PMMRatio += 1 + ErrorCount / Items.Count
+                If ErrorCount > 0 Then
+                    Groups(ID).PMMRatio += 1 + ErrorCount / Items.Count
+                    LogDesignErrors(Groups(ID).GroupName, Items, FrameName, ErrorSummary, BCRatios IsNot Nothing)
+                End If
                 If BC > Groups(ID).PMMRatio Then Groups(ID).PMMRatio = BC
 
                 If updateDesignSections Then
