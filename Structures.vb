@@ -144,6 +144,7 @@ Public Class FramePointStoryGroupStructures_
         Public GroupLength As Double
         Public GroupDesignProcedure As DesignProcedure_
         Public PMMRatio As Double
+        Public SCWBRatio As Double              'AISC 341 strong column - weak beam: largest beam/column capacity ratio of the group (limit 1; 0 = not checked)
         Public DesignSecName As String
         Public DesignSecID As Integer
         Public IsComposite As Boolean       'composite column group (designed by CompositeColumn.vb); hybrid: type of the current design

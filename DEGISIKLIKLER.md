@@ -12,7 +12,7 @@ Her iş "Aşama N" başlığıyla ve test sonuçlarıyla birlikte buraya yazıl�
 - Aşama 8 (kompozit döşeme) atlandı: proje sonunda ayrı program önerisi.
 
 **Bulgular (ETABS 22.6 API)**
-- Otomatik deprem için API'de yalnızca `SetASCE716` var; ASCE 7-22 yok. Rüzgâr için `cAutoWind` boş. ASCE 7-22 otomatik yükleri **veritabanı tablolarıyla** kurulacak: `Load Pattern Definitions - Auto Seismic - ASCE 7-22`, `... Auto Wind - ASCE 7-22`, `Functions - Response Spectrum - ASCE7-22`.
+- **Otomatik yükler (2026-10-08 düzeltmesiyle):** ASCE 7-16 otomatik deprem API ile **kurulabiliyor**: `LoadPatterns.AutoSeismic.SetASCE716_1` çalışıyor (kod 0, desen "ASCE 7-16" olarak tanınıyor); eski `SetASCE716` 30 parametre varyantında da hata veriyor. **ASCE 7-22 için API metodu yok.** Rüzgâr için `cAutoWind` arayüzü boş: hiçbir yönetmelikte API ile otomatik rüzgâr kurulamıyor. Tablolarla da olmuyor (`AutoLoad` alanı içe aktarılamıyor). ASCE 7-22 tepki spektrumu fonksiyonu ve durumları tablo ile kuruluyor; rüzgâr ve ELF programda hesaplanıyor.
 - Boş ETABS modelinde `A992Fy50` (Fy 344,7 MPa, E 199948 MPa), `4000Psi`, `A615Gr60`, `A416Gr270` malzemeleri ve `D1` rijit diyaframı zaten var. Yeniden tanımlamak `A992Fy50-1` yinelemesi ve `SetDiaphragm` hatası veriyor; var olanlar kullanılıyor.
 - `AreaObj.AddByCoord` ile `PropName = "None"` boş (null) döşeme alanı üretiyor.
 - `PropFrame.Count / GetNameList` içe aktarılan kesitleri 0 gösteriyor (API tuhaflığı); kesitler elemanlardan doğrulandı.

@@ -140,7 +140,7 @@ Parametrelerden, optimizasyon programının **hiçbir elle müdahale gerektirmed
 
 ## 12. Uygulama sırasında bulunan değişiklik (2026-10-07)
 ETABS 22.6'da **otomatik** ASCE 7-22 yük desenleri API ile kurulamıyor:
-- `LoadPatterns.AutoSeismic` yalnızca eski `SetASCE716` / `SetIBC2006` içeriyor ve çağrı hata veriyor; `AutoWind` boş.
+- `LoadPatterns.AutoSeismic`: ASCE 7-16 için `SetASCE716_1` çalışıyor (eski `SetASCE716` hata veriyor); ASCE 7-22 için metot yok. `AutoWind` arayüzü boş.
 - Veritabanı tablolarında `AutoLoad` alanı içe aktarılamıyor (alan açıklaması: "auto load patterns are not imported"); otomatik desen satırları sessizce reddediliyor.
 
 Bu yüzden Bölüm 6 şöyle uygulanıyor:

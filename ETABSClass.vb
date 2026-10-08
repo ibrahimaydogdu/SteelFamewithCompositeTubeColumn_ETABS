@@ -219,6 +219,10 @@ Partial Public Class ETABS_Class
             If (ret <> 0) Then : Errorlogprint("Problem occurred on Function: Initialize_UBLB") : Return ret : End If
         End If
         CompositeActive = FormInfo.CompositeColumns
+        If FormInfo.CheckStructure = False AndAlso ReadSetting("WidenBoundsForDrift") <> "false" Then
+            ret = WidenBoundsForDrift()
+            If (ret <> 0) Then : Errorlogprint("Problem occurred on Function: WidenBoundsForDrift") : Return ret : End If
+        End If
         '_____________________________________________________
         'Start Timer
         FormInfo.TimerInfo.startDate = Date.Now
@@ -1455,6 +1459,55 @@ Partial Public Class ETABS_Class
         Return ret
     End Function
 
+    'The search bounds come from the strength design of ETABS: when the story drift governs (e.g. seismic with Cd/Ie amplification)
+    'even the design with every variable at its upper bound can violate the drift limit, so no feasible design exists inside the
+    'bounds. The design at the upper bounds is analysed once; while its drift is violated the upper bounds are raised by
+    'UPPER_BOUND_MULTIPLIER (of the section list) at a time, up to the whole list. (The usual practice of the literature is the
+    'whole W section list for every group.) Designs that are feasible at the first bounds are not changed. App.config
+    'WidenBoundsForDrift = false switches this off.
+    Private Function WidenBoundsForDrift() As Integer
+        Dim N As Integer = WSections.Count
+        Dim StepW As Integer = Math.Max(1, CInt(Math.Round(0.23 * (N - 1))))
+        For Attempt = 1 To 5
+            Dim M As New OptimizationStructure_.Member_ With {.DesignVariables = CType(Ub.Clone(), Integer())}
+            Dim Dummy As Integer = 0, ret As Integer = 0
+            Evaluate(M, Dummy, ret, False)
+            If ret <> 0 Then Return ret
+            If AnalysisFailed Then Return 0
+            Dim Drift As Double = Math.Max(Math.Max(Stories.Max(Function(c) c.InterStoryDPenaltyX), Stories.Max(Function(c) c.InterStoryDPenaltyY)),
+                                           Math.Max(Math.Max(TopDriftX, TopDriftY) / TopDriftLimit - 1, 0))
+            If Drift <= 0 Then
+                If Attempt > 1 Then Errorlogprint("Info: search bounds widened " & (Attempt - 1) & " time(s): the design at the upper bounds now meets the story drift limits")
+                Return 0
+            End If
+            Dim AllOpen As Boolean = True
+            For i = 0 To SteelUb.Length - 1
+                Dim isec As Integer = SteelFrameDesignGroupIDs(i)
+                SteelUb(i) = Math.Min(N - 1, SteelUb(i) + StepW)
+                If SteelUb(i) < N - 1 Then AllOpen = False
+                If FormInfo.CompositeColumns AndAlso Groups(isec).IsColumn Then
+                    If TubeMode Then
+                        Dim Nt As Integer = Tubes.Count
+                        CompUb(i) = Math.Min(Nt - 1, CompUb(i) + Math.Max(1, CInt(Math.Round(0.23 * (Nt - 1)))))
+                        If CompUb(i) < Nt - 1 Then AllOpen = False
+                    Else
+                        CompUb(i) = SteelUb(i)
+                    End If
+                End If
+                Dim C As Boolean = Groups(isec).IsComposite
+                Ub(i) = If(C, CompUb(i), SteelUb(i))
+            Next
+            If Hybrid Then
+                BuildHybridLayout()
+            Else
+                GUb = Ub : GLb = Lb
+            End If
+            Errorlogprint("Info: the design at the upper bounds violates the story drift limits (excess " & Drift.ToString("0.###", CultureInfo.InvariantCulture) & "): upper bounds raised (step " & Attempt & ")" & If(AllOpen, ", the whole section list is open", ""))
+            If AllOpen Then Exit For
+        Next
+        Return 0
+    End Function
+
     'applyRepair = False: sections are only checked (no modification of the design variables)
     Public Sub Evaluate(ByRef Member As OptimizationStructure_.Member_, ByRef iter_ As Integer, ByRef ret As Integer, Optional ByVal applyRepair As Boolean = True)
         Dim repair As Boolean = applyRepair AndAlso Not FormInfo.CheckStructure
@@ -1822,6 +1875,7 @@ Partial Public Class ETABS_Class
         L.Add("inter-story drift / limit: " & F3(Inter))
         L.Add("top drift / limit: " & F3(Math.Max(TopDriftX, TopDriftY) / TopDriftLimit))
         Dim SteelIDs = SteelFrameDesignGroupIDs.Where(Function(id) Not Groups(id).IsComposite).ToList()
+        If SteelIDs.Any(Function(id) Groups(id).SCWBRatio > 0) Then L.Add("beam/column capacity ratio (AISC 341 strong column - weak beam, max): " & F3(SteelIDs.Max(Function(id) Groups(id).SCWBRatio)))
         If SteelIDs.Count > 0 Then L.Add("steel design ratio / D/C limit " & SteelRatioLimit.ToString("0.###", CultureInfo.InvariantCulture) & " (max): " & F3(SteelIDs.Max(Function(id) Groups(id).PMMRatio)))
         Dim CompIDs = SteelFrameDesignGroupIDs.Where(Function(id) Groups(id).IsComposite).ToList()
         If CompIDs.Count > 0 Then
@@ -2059,6 +2113,41 @@ Partial Public Class ETABS_Class
         End If
     End Sub
 
+    Private Const BC_MESSAGE As String = "Beam/Column capacity ratio exceeds limit"
+
+    'True if the design message of a frame is only the beam/column capacity ratio message
+    Private Shared Function OnlyBeamColumnMessage(ByVal Message As String) As Boolean
+        Return Message.Replace(BC_MESSAGE, "").Replace(vbCr, "").Replace(vbLf, "").Replace(";", "").Replace(".", "").Trim().Length = 0
+    End Function
+
+    'Beam/column capacity ratios of the steel columns (table "Steel Column Envelope": BCMajor, BCMinor; AISC 341 strong column - weak beam,
+    'limit 1): largest value per design group. Nothing if the table cannot be read (the frames then count as errors as before).
+    Private Function ReadBeamColumnRatios() As Dictionary(Of String, Double)
+        Try
+            Dim Key As String = "Steel Column Envelope - " & FormInfo.FrameInfo.SteelDesignCode
+            Dim Version, N As Integer, Fields() As String = Nothing, Data() As String = Nothing
+            If SapModel.DatabaseTables.GetTableForDisplayArray(Key, Nothing, "", Version, Fields, N, Data) <> 0 OrElse Fields Is Nothing Then Return Nothing
+            Dim iName As Integer = Array.IndexOf(Fields, "UniqueName"), iMa As Integer = Array.IndexOf(Fields, "BCMajor"), iMi As Integer = Array.IndexOf(Fields, "BCMinor")
+            If iName < 0 OrElse iMa < 0 OrElse iMi < 0 Then Return Nothing
+            Dim Num = Function(s As String) As Double
+                          Dim x As Double
+                          Return If(Double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, x), x, 0)
+                      End Function
+            Dim D As New Dictionary(Of String, Double)
+            For r = 0 To N - 1
+                Dim F As Integer = 0
+                If Not FrameIndex.TryGetValue(Data(r * Fields.Length + iName), F) Then Continue For
+                Dim G As String = Frames(F).GroupName
+                If G Is Nothing Then Continue For
+                Dim V As Double = Math.Max(Num(Data(r * Fields.Length + iMa)), Num(Data(r * Fields.Length + iMi)))
+                D(G) = Math.Max(If(D.ContainsKey(G), D(G), 0), V)
+            Next
+            Return D
+        Catch
+            Return Nothing
+        End Try
+    End Function
+
     'updateDesignSections: also read the sections selected by ETABS (needed only for auto select lists)
     Private Function G1_ConsPMM(ByVal updateDesignSections As Boolean) As Integer
         Dim ret As Integer = G1_1_Design()
@@ -2084,6 +2173,8 @@ Partial Public Class ETABS_Class
                 Next
             End If
             ret = 0
+            Dim BCRatios As Dictionary(Of String, Double) = Nothing
+            If NumberItems > 0 AndAlso ErrorSummary IsNot Nothing AndAlso ErrorSummary.Any(Function(m) m IsNot Nothing AndAlso m.Contains(BC_MESSAGE)) Then BCRatios = ReadBeamColumnRatios()
             For i = 0 To SteelFrameDesignGroupIDs.Count - 1
                 Dim ID As Integer = SteelFrameDesignGroupIDs(i)
                 If CompositeActive AndAlso Groups(ID).IsComposite Then Continue For
@@ -2095,8 +2186,14 @@ Partial Public Class ETABS_Class
                     Return 0
                 End If
                 Groups(ID).PMMRatio = Items.Max(Function(j) Ratio(j)) / SteelRatioLimit      'ETABS D/C ratio limit
-                Dim ErrorCount As Integer = Items.Where(Function(j) Not String.IsNullOrEmpty(ErrorSummary(j))).Count()
+                'a beam/column capacity ratio above the limit (AISC 341 strong column - weak beam) is a continuous constraint: its ratio
+                'goes into the ratio of the group instead of the error count
+                Dim BC As Double = 0
+                If BCRatios IsNot Nothing Then BCRatios.TryGetValue(Groups(ID).GroupName, BC)
+                Groups(ID).SCWBRatio = BC
+                Dim ErrorCount As Integer = Items.Where(Function(j) Not String.IsNullOrEmpty(ErrorSummary(j)) AndAlso Not (BCRatios IsNot Nothing AndAlso OnlyBeamColumnMessage(ErrorSummary(j)))).Count()
                 If ErrorCount > 0 Then Groups(ID).PMMRatio += 1 + ErrorCount / Items.Count
+                If BC > Groups(ID).PMMRatio Then Groups(ID).PMMRatio = BC
 
                 If updateDesignSections Then
                     'largest (by area) design section of the group

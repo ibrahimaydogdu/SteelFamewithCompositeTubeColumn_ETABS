@@ -123,6 +123,8 @@ Ayar dosyası Not Defteri ile açılıp düzenlenebilir. Yalnızca `value="…"`
 | `ServiceLateralFactor` | 1,0 | Programın oluşturduğu `SRV_<desen>` servis durumlarının yük katsayısı. Örneğin ASCE 7 servis rüzgârı için 0,6–0,7. |
 | `SeismicDriftAmplification` | 1,0 | Servis öteleme modunda deprem durumlarının yerdeğiştirme büyütmesi. ASCE 7: Cd/Ie, TBDY 2018: R/I. |
 | `CompositeStrengthFactor` | 1,0 | İç kompozit dayanım oranlarının çarpanı. Final ETABS kontrolünün önerdiği değer girilebilir (bkz. 7.4). |
+| `UpperBoundMultiplier` | 0,23 | Bir grubun üst arama sınırı = ETABS dayanım tasarımındaki kesit + bu orandaki kesit listesi payı. Öteleme belirleyiciyse `1` (bütün liste). Literatürde her grup için tam W listesi yaygındır. |
+| `WidenBoundsForDrift` | true | Başlangıçta, bütün değişkenler üst sınırdayken tasarım bir kez analiz edilir; öteleme sınırı aşılıyorsa üst sınırlar `UpperBoundMultiplier` kadar kademeli artırılır (en çok bütün liste). İlk sınırlarda uygun olan modeller değişmez. `false` kapatır. |
 | `DesignRatioLimit` | boş | Çelik ve kompozit kolon tasarımının **D/C oranı sınırı** (bkz. 7.6). Boşsa modelin ETABS tasarım tercihlerindeki değer kullanılır (ETABS varsayılanı 0,95). Bir sayı girilirse (örneğin AISC 360 için 1,0) bu değer çalışma kopyasının tercihlerine yazılır. |
 
 Örnek: ETABS `D:\CSI\ETABS 22` klasörüne kurulduysa:
@@ -205,7 +207,10 @@ Program seçilen modeli **değiştirmez**:
 ### 4.5 Analiz
 Kompozit kolonlarda B2 = 1 kabul edilir (`EncasedSections.xml`); bu yüzden analizde P-Delta etkisi olmalıdır. Formdaki *P-Delta analysis* seçeneği (varsayılan açık) bunu çalışma kopyasında sağlar ve kendi modelinizi değiştirmez.
 
-### 4.6 Model kontrol listesi
+### 4.6 AISC 341 güçlü kolon–zayıf kiriş (SCWB)
+Tasarım tercihlerinde çerçeve tipi SMF/IMF ve AISC 341 hükümleri açıksa (*Ignore Seismic Code* = No) ve modelde depremli kombinasyonlar varsa ETABS her kolon için kiriş/kolon kapasite oranını hesaplar (`Steel Column Envelope` tablosunda `BCMajor`, `BCMinor`; sınır 1,0). Program bu oranı **sürekli bir kısıt** olarak kullanır: sınırı aşan kolon grubunun oranı, grubun tasarım oranına katılır (günlük ve kısıt özeti: "beam/column capacity ratio"); sınırı aşılan grup, ceza ve onarım adımlarıyla büyütülür. ETABS bu durumda "6 Steel frames with auto select sections failed stress/capacity check" sorusunu sorar; gizli ETABS'te program bunu otomatik "No" ile cevaplar. 525M gibi depremli kombinasyonu olmayan modellerde etkisi yoktur.
+
+### 4.7 Model kontrol listesi
 - [ ] Değişken gruplar *Steel Frame Design*, kolon ve kiriş grupları ayrı
 - [ ] `A992Fy50` (ve kompozit modda beton ile donatı malzemeleri) tanımlı
 - [ ] Yük desen tipleri doğru (Wind / Quake)
@@ -576,34 +581,45 @@ Yedek denetimleri:
 | Yedek başlangıç belleği sırasında yazılmış (eksik bellek) | Eksik tasarımlar üretilir ve yöntem durumu kurulur. |
 
 ### 8.4 Toplu koşu (`tools\RunBatch.ps1`)
-Yöntem karşılaştırması gibi çok sayıda uzun koşu için form açmadan, sırayla ya da aynı anda birkaç koşu yapılabilir.
+Yöntem karşılaştırması gibi çok sayıda uzun koşuyu form açmadan, aynı anda birkaçı çalışacak biçimde yürütür. Koşu listesini (CSV) elle yazarsınız.
 
 **Program tarafı:** `FrameSap2000.exe /batch <ayar.xml> [/resume]`
-- `<ayar.xml>` formun ayarlarıdır (yedek ve sonuç dosyalarındaki `FormInfo_` biçimi). Şablon: `toolsatch_template.xml`.
-- Mesaj kutusu açılmaz. Mesajlar `<ayar>.batch.log` dosyasına yazılır, sorular *Yes / OK* ile cevaplanır.
+- `<ayar.xml>` formun ayarlarıdır (yedek ve sonuç dosyalarındaki `FormInfo_` biçimi); şablon `toolsatch_template.xml`. Betik bunu sizin için yazar.
+- Mesaj kutusu açılmaz. Mesajlar `<ayar>.batch.log` dosyasına yazılır, sorular *Yes / OK* ile cevaplanır. Gizli ETABS'in soru kutuları otomatik cevaplanır (günlükte `Warning: ETABS dialog answered ...`).
 - Koşu bitince program kapanır; koşu başarısızsa çıkış kodu 1 olur. `/resume` koşuya yedekten devam eder.
-- Günlük dosyası yazılamazsa program hemen kapanır (çıkış kodu 1).
 
-**Betik:** koşu listesi bir CSV dosyasıdır (örnek: `tools\Asama7_runs.csv`).
+**Çalıştırma**
+```
+powershell -ExecutionPolicy Bypass -File tools\RunBatch.ps1 -Runs D:\Kosular\liste.csv -Out D:\Kosular\Sonuc -Exe D:\Kosularin\FrameSap2000.exe -Parallel 3 -StartDelay 180
+```
+| Seçenek | Anlamı |
+|---|---|
+| `-Parallel N` | sistemde aynı anda en çok N toplu koşu (varsayılan 3); başka pencerelerdeki toplu koşular da sayılır, elle açılan form sayılmaz |
+| `-StartDelay s` | koşuların başlangıç aralığı (varsayılan 120 s) |
+| `-Status` | koşmadan durumu yazar: durum (`başlamadı`, `çalışıyor`, `bitti`, `uygun tasarım yok`, `hata`, `durdu/çöktü`), analiz sayısı, en iyi maliyet; çalışan koşuları rahatsız etmez |
+| `-Stop` | `-Out` klasöründeki çalışan koşuları ve kendi ETABS örneklerini kapatır (betiğin çalıştığı pencereyi de kapatın) |
+| `-Resume` | sonucu olmayan koşuları yedekten devam ettirir |
+| `-NoRetry` | çöken koşuyu yeniden başlatmaz |
+| `-SummaryOnly` | koşmaz, yalnızca `summary.csv` yazar |
+
+**Liste sütunları** (ilk 7 zorunlu)
 
 | Sütun | Anlamı |
 |---|---|
-| Name | koşu adı (klasör ve dosya adı) |
-| Model | model dosyası; göreli yol CSV'nin klasörüne göre |
+| Name | koşu adı (klasör ve dosya adı); yinelenmemeli |
+| Model | model dosyası; göreli yol listenin klasörüne göre |
 | Method | `OptMethod_` adı: `SocialSpider`, `HarmornySearch`, `ArtificialBeeColony`, … |
 | Mode | `Steel` / `Composite` / `Hybrid` |
 | MaxAnalyses, MemorySize, Seed | analiz bütçesi, popülasyon, tohum |
 | Transition | hibritte `PerStack` / `PerGroup` (isteğe bağlı) |
 | AbcLimit | ABC terk sınırı (isteğe bağlı) |
+| Config | bu koşu için `App.config` değerleri: `Anahtar=değer;Anahtar2=değer2`, örn. `SeismicDriftAmplification=5.5;UpperBoundMultiplier=1`. Doluysa koşuya kendi exe kopyası verilir (`<Out>\<Name>in`); boşsa `-Exe` klasörü ortak kullanılır |
 
-```
-powershell -ExecutionPolicy Bypass -File tools\RunBatch.ps1 -Runs tools\Asama7_runs.csv -Out D:\Kosular\Asama7 -Exe D:\Kosular\Asama7in\FrameSap2000.exe -Parallel 3 -StartDelay 180
-```
-- Her koşu `<Out>\<Name>` klasöründe modelin **kopyasıyla** çalışır; orijinal model değişmez. `ErrorLog.txt`, sonuç, Excel ve `_best.EDB` dosyaları da bu klasöre yazılır.
-- En çok `-Parallel` koşu aynı anda çalışır ve koşular `-StartDelay` saniye arayla başlatılır. Her koşu ayrı bir ETABS açar; ETABS lisansının birden fazla örneğe izin vermesi gerekir.
-- Sonucu olan koşular atlanır. Kesilen koşular `-Resume` ile yedekten devam eder.
-- Sonunda `<Out>\summary.csv` yazılır. Sütunlar: analiz sayısı, en iyi maliyet ve cezası, final analizdeki maliyet ve ceza, final durumu, süre (saat) ve hibrit yığınların geçişi. Yalnızca özet için: `-SummaryOnly`.
-- **Örnek modeller:** tablodan toplu model üretmek için ayrı program: `ModelBuilder` (kılavuz: `ModelBuilder\README.md`). Ürettiği `runs_template.csv` bu betiğin liste biçimindedir.
+- Her koşu `<Out>\<Name>` klasöründe modelin **kopyasıyla** çalışır; orijinal model değişmez. `ErrorLog.txt`, sonuç, Excel ve `_best.EDB` dosyaları da bu klasöre yazılır. Betiğin kendi günlüğü `<Out>unner.log`.
+- **Yeniden başlatma:** koşu normal biter ve "uygun tasarım bulunamadı" derse (sonuç dosyası olmaz) yeniden başlatılmaz; durumu `-Status` gösterir. Yalnızca çöken koşu (günlüğün sonunda `Finished` / `Failed` yok) bir kez yedekten devam eder.
+- Sonucu olan koşular atlanır; liste sonradan uzatılıp betik yeniden çalıştırılabilir.
+- Sonunda `<Out>\summary.csv` yazılır: durum, analiz sayısı, en iyi maliyet ve cezası, final analizdeki maliyet ve ceza, final durumu, süre (saat) ve hibrit yığınların geçişi.
+- **Örnek modeller:** tablodan toplu model üretmek için ayrı program: `ModelBuilder` (kılavuz: `ModelBuilder\README.md`). Ürettiği `runs_template.csv` bu listenin biçimindedir.
 - **Yol uzunluğu:** program 260 karakteri aşan yollara yazamaz. Betik, en uzun dosya yolu 230 karakteri aşarsa durur; `-Out` için kısa bir klasör seçin.
 - Koşular sürerken aynı exe yeniden derlenemez. Bu nedenle exe'yi (`bin\Release` içeriğini) koşu klasörüne kopyalayıp `-Exe` ile o kopyayı verin.
 
