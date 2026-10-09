@@ -88,6 +88,7 @@ to read the results.
 ## Documentation (Turkish)
 | File | Content |
 |---|---|
+| [YETENEKLER_RAPORU.md](YETENEKLER_RAPORU.md) | Capabilities report: what the program can and cannot do, results so far, options for the paper scope |
 | [KULLANIM_KILAVUZU.md](KULLANIM_KILAVUZU.md) | User guide |
 | [ModelBuilder/README.md](ModelBuilder/README.md) | Model builder: CSV table, generated model, loads, combinations, limits |
 | [PROGRAM_KURALLARI.md](PROGRAM_KURALLARI.md) | Program structure and rules for developers |
