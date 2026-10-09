@@ -125,6 +125,8 @@ Ayar dosyası Not Defteri ile açılıp düzenlenebilir. Yalnızca `value="…"`
 | `CompositeStrengthFactor` | 1,0 | İç kompozit dayanım oranlarının çarpanı. Final ETABS kontrolünün önerdiği değer girilebilir (bkz. 7.4). |
 | `UpperBoundMultiplier` | 0,23 | Bir grubun üst arama sınırı = ETABS dayanım tasarımındaki kesit + bu orandaki kesit listesi payı. Öteleme belirleyiciyse `1` (bütün liste). Literatürde her grup için tam W listesi yaygındır. |
 | `WidenBoundsForDrift` | true | Başlangıçta, bütün değişkenler üst sınırdayken tasarım bir kez analiz edilir; öteleme sınırı aşılıyorsa üst sınırlar `UpperBoundMultiplier` kadar kademeli artırılır (en çok bütün liste). İlk sınırlarda uygun olan modeller değişmez. `false` kapatır. |
+| `SeismicDuctilityFilter` | auto | AISC 341 süneklik süzgeci (Tablo D1.1): `auto` = yalnızca AISC 341 denetimleri modelde etkinse (SCWB oranları var) ve çerçeve tipi SMF (yüksek) veya IMF (orta) ise; `on` = her zaman; `off` = hiçbir zaman. Kompakt olmayan kesitler her analizden önce en yakın uygun kesitle değiştirilir |
+| `SeismicColumnCa` | 0,3 | Süzgeçte kolon gövde sınırı için varsayılan eksenel yük oranı Pu/(phi Py); gerçek Ca daha büyükse kalan durumlar cezayla yakalanır |
 | `DesignRatioLimit` | boş | Çelik ve kompozit kolon tasarımının **D/C oranı sınırı** (bkz. 7.6). Boşsa modelin ETABS tasarım tercihlerindeki değer kullanılır (ETABS varsayılanı 0,95). Bir sayı girilirse (örneğin AISC 360 için 1,0) bu değer çalışma kopyasının tercihlerine yazılır. |
 
 Örnek: ETABS `D:\CSI\ETABS 22` klasörüne kurulduysa:
@@ -209,6 +211,9 @@ Kompozit kolonlarda B2 = 1 kabul edilir (`EncasedSections.xml`); bu yüzden anal
 
 ### 4.6 AISC 341 güçlü kolon–zayıf kiriş (SCWB)
 Tasarım tercihlerinde çerçeve tipi SMF/IMF ve AISC 341 hükümleri açıksa (*Ignore Seismic Code* = No) ve modelde depremli kombinasyonlar varsa ETABS her kolon için kiriş/kolon kapasite oranını hesaplar (`Steel Column Envelope` tablosunda `BCMajor`, `BCMinor`; sınır 1,0). Program bu oranı **sürekli bir kısıt** olarak kullanır: sınırı aşan kolon grubunun oranı, grubun tasarım oranına katılır (günlük ve kısıt özeti: "beam/column capacity ratio"); sınırı aşılan grup, ceza ve onarım adımlarıyla büyütülür. ETABS bu durumda "6 Steel frames with auto select sections failed stress/capacity check" sorusunu sorar; gizli ETABS'te program bunu otomatik "No" ile cevaplar. 525M gibi depremli kombinasyonu olmayan modellerde etkisi yoktur.
+
+### 4.6b AISC 341 süneklik süzgeci
+SMF/IMF çerçevelerde AISC 341 açıkken ETABS, kompakt olmayan kesitleri ("Section is not seismically compact for highly ductile members") ve Lb/ry sınırını aşan kirişleri ("Lb/ry > 0.095*E/(Ry*Fy)") tasarım hatası sayar. Program bu durumda (1) kesit süzgecini uygular (günlük: `Info: AISC 341 ductility filter ... N of 289 sections for beams, M for columns`) ve (2) her farklı ETABS tasarım hatasını `ErrorLog.txt`'ye grup ve kesit adıyla bir kez yazar. **Kirişlerin yanal desteğini modelde tanımlayın:** destek yoksa ETABS kirişi tüm açıklık boyunca desteksiz sayar ve Lb/ry sınırı çoğu kirişi eler (ModelBuilder `BeamBracingSpacing = 2,5 m` ile tasarım overwrite `LMinor` / `LTB` değerlerini yazar). Kendi modelinizde bunu ETABS'ta *Design Overwrites > Unbraced Length Ratio* ile girin.
 
 ### 4.7 Model kontrol listesi
 - [ ] Değişken gruplar *Steel Frame Design*, kolon ve kiriş grupları ayrı

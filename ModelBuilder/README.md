@@ -54,7 +54,7 @@ Birimler: m, kN, kPa, MPa, m/s, g, s. Bay uzunlukları `3x9 6` biçiminde (9, 9,
 | `WindExposure`, `WindKzt`, `WindKd`, `WindGust` | C, 1, 0.85, 0.85 | Arazi maruziyeti B/C/D, topografik faktör, yönsellik faktörü, ani rüzgâr faktörü G |
 | `SDS`, `SD1`, `S1`, `TL` | 1.0, 0.6, 0.6, 8 | Tasarım spektral ivmeleri (g), S1 (g), uzun periyot geçişi (s) |
 | `SiteClass` | D | Zemin sınıfı A–E |
-| `SeismicProvisions` | No | `Yes`: ETABS AISC 341 hükümlerini de uygular (güçlü kolon–zayıf kiriş vb.). Optimizasyon programı başarısız bir AISC 341 denetimini tasarım hatası sayıp ağır cezalandırır; ikili denetim aramayı yönlendiremediği için çözümsüz örnekler çıkabilir (Bölüm 7). `No`: yalnızca AISC 360 dayanımı ve öteleme; AISC 341 kompaktlık süzgeci havuzlarda kalır |
+| `SeismicProvisions` | Yes | `Yes`: ETABS AISC 341 hükümlerini de uygular (güçlü kolon–zayıf kiriş, süneklik, Lb/ry). Optimizasyon programı bunları yönetir: SCWB oranı sürekli kısıt, kesit süneklik süzgeci kesitleri eler; kirişlerin yanal desteği (`BeamBracingSpacing`) bu yüzden zorunludur. `No`: yalnızca AISC 360 dayanımı ve öteleme (karşılaştırma için) |
 | `RiskCategory` | II | Risk kategorisi I–IV (deprem tasarım kategorisi için) |
 | `FrameClass` | SMF | `SMF` / `IMF` / `OMF`; `R`, `Cd`, `Omega0` boşsa (0) buna göre: SMF 8 / 5,5 / 3; IMF 4,5 / 4 / 3; OMF 3,5 / 3 / 3 |
 | `R`, `Cd`, `Omega0` | 0 | Katsayıları elle vermek için (0 = `FrameClass`'a göre) |
@@ -110,7 +110,7 @@ Model geçici klasörde analiz edilir (çıktı klasöründe analiz dosyası kal
 
 ## 7. Sınırlar ve kapsam dışı (ileride eklenebilir)
 
-- **AISC 341 hükümleri varsayılan olarak kapalıdır** (`SeismicProvisions = No`). ETABS, SMF çerçeve tipinde depremli kombinasyonlar varken güçlü kolon–zayıf kiriş denetimini ("Beam/Column capacity ratio exceeds limit") yapar; bu denetim geçti/kaldı biçimindedir ve optimizasyon programı bunu sürekli bir kısıt olarak değil tasarım hatası olarak cezalandırır. Denendi: 4 katlı örnekte bu denetim açıkken 183 analizde uygun tasarım bulunamadı (kenar kolon grupları). Güçlü kolon–zayıf kiriş oranını sürekli kısıt olarak okuyan bir geliştirme gerekir.
+- **AISC 341 hükümleri varsayılan olarak açıktır** (`SeismicProvisions = Yes`). Optimizasyon programı güçlü kolon–zayıf kiriş oranını sürekli kısıt olarak okur ve AISC 341 süneklik süzgecini (Tablo D1.1) uygular. Kiriş yanal desteği `BeamBracingSpacing = 2,5 m` ile tanımlanır; desteksiz modelde ETABS kirişi tüm açıklık boyunca desteksiz sayar ve Lb/ry sınırı (D1.2b) örneği çözümsüz bırakır. Doğrulama: 4 katlı örnek, SSO, 500 analiz, destekli model → uygun tasarım (534 analiz, maliyet 1726,90); desteksiz model → uygun tasarım yok.
 
 - Çaprazlı sistemler, düzensiz plan ve geri çekmeler, kar birikmesi, zemin–yapı etkileşimi, hareketli yük azaltması, tali kirişler ve kompozit döşeme **yok**.
 - Rüzgârın burulmalı durumları (Şekil 27.3-8 Durum 2 ve 4) yok; esnek bina için ani rüzgâr faktörü hesaplanmaz (`WindGust` kullanıcı değeri).
